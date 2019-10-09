@@ -101,7 +101,7 @@ class player{
 		this.direction = 0;
 		this.span = 0; // これが0でないと発射されない
 		this.shotId = 0;
-		this.shotIdMax = 1;
+		this.shotIdMax = 2;
 		this.collider = undefined;
 	}
 	initialize(x, y, speed){
@@ -115,6 +115,8 @@ class player{
 	}
 	shotChange(){
 		this.shotId = (this.shotId + 1) % this.shotIdMax;
+		let cArray = bodyColor[this.shotId];
+		this.c = {r:cArray[0], g:cArray[1], b:cArray[2]};
 	}
 	fire(){
 		if(this.span === 0 && mouseIsPressed){ return true; }
@@ -201,7 +203,8 @@ class bullet{
 		ellipse(this.p.x, this.p.y, this.diam, this.diam);
 	}
 	hit(_enemy){
-		this.alive = false;
+		// 貫通する場合は死なないけど。
+		this.eject();
 	}
 }
 
