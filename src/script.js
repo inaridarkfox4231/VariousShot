@@ -5,7 +5,8 @@ let all;
 let mX = -1;
 let mY = -1;
 let doubleClickFlag = false;
-const bodyColor = [[0, 0, 0]];
+const bodyColor = [[0, 0, 0], [27, 139, 61]];
+const spanArray = [5, 10]; // span関係ないところは-1で補間
 
 function setup() {
 	createCanvas(400, 400);
@@ -120,7 +121,8 @@ class player{
 		return false;
 	}
 	setSpan(){
-		this.span = 5; // 種類により変える？
+		this.span = spanArray[this.shotId]; // 種類により変える？
+		// ここが-1になるような状況ならそれを受け取ったうえで次の処理・・みたいな。
 	}
 	update(){
 		if(this.span > 0){ this.span--; }
@@ -143,6 +145,7 @@ class player{
 		ellipse(this.p.x, this.p.y, 20, 20);
 		fill(this.c.r, this.c.g, this.c.b);
 		ellipse(this.p.x, this.p.y, 10, 10);
+		// 矢印表示
 		fill(0);
 		stroke(5);
 		let _dir = this.direction;
@@ -234,6 +237,7 @@ class bendBullet extends bullet{
 
 class enemy{
 	constructor(){
+		this.typeName = "";
 		this.hp = 0;
 		this.p = {};
 		this.count = 0;
@@ -250,6 +254,7 @@ class enemy{
 class simpleEnemy extends enemy{
 	constructor(){
 		super();
+		this.typeName = 'simple';
 		this.diam = 0;
 		this.c = {};
 	}
@@ -304,7 +309,7 @@ class master{
 		for(let x = 100; x <= 300; x += 40){
 			for(let y = 100; y <= 300; y += 40){
 				let e = new simpleEnemy();
-				e.initialize(15, x, y, 20, 255, x - 100, y - 100);
+				e.initialize(15, x, y, 20, 255, x / 2 - 50, y / 2 - 50);
 				this.enemyArray.push(e);
 			}
 		}
@@ -329,6 +334,16 @@ class master{
 		}
 	}
 	get5WayBullets(p, c, angle){
+		// 5wayを作る。angle方向に修正する。
+		let bulletArray = [];
+		for(let t = -4; t <= 4; t += 2){
+			let b = new bendBullet(5 * Math.cos(angle), 5 * Math.sin(angle), 10);
+			let vx = 5 * Math.cos(angle) + t * Math.sin(angle);
+			let vy = 5 * Math.sin(angle) - t * Math.cos(angle);
+			b.initialize(3, p.x, p.y, vx, vy, 10, c.r, c.g, c.b);
+			bulletArray.push(b);
+		}
+		return bulletArray;
 	}
 	fireCheck(){
 		// 弾丸発射はここで
@@ -351,12 +366,22 @@ class master{
 			for(let k = 0; k < this.enemyArray.length; k++){
 				let e = this.enemyArray[k];
 				if(!e.alive){ continue; }
-				if(collideCircleAndCircle(b.collider, e.collider)){
+				if(collideObjects(b.collider, e.collider)){
 					b.hit();
 					e.hit(b);
+					if(!e.alive){ this.createKilledEffect(e); }
 					break;
 				}
 			}
+		}
+	}
+	createKilledEffect(_enemy){
+		// _enemyにより処理を変えたいけどね。
+		let c = _enemy.c;
+		let p = _enemy.p;
+		if(_enemy.typeName === 'simple'){
+			let ef = new circleVanish(60, 60, 10, c.r, c.g, c.b, p.x, p.y);
+			this.effectArray.push(ef);
 		}
 	}
 	eject(){
@@ -370,17 +395,16 @@ class master{
 		}
 		for(let i = 0; i < this.enemyArray.length; i++){
 			let e = this.enemyArray[i];
-			if(!e.alive){
-				this.effectArray.push(new circleVanish(60, 60, 10, e.c.r, e.c.g, e.c.b, e.p.x, e.p.y));
-				this.enemyArray.splice(i, 1);
-			}
+			if(!e.alive){ this.enemyArray.splice(i, 1); }
 		}
 	}
 }
 
-function collideCircleAndCircle(_collider1, _collider2){
-	if(dist(_collider1.x, _collider1.y, _collider2.x, _collider2.y) < _collider1.r + _collider2.r){
-		return true;
+function collideObjects(_collider1, _collider2){
+	if(_collider1.typeName === 'circle' && _collider2.typeName === 'circle'){
+		if(dist(_collider1.x, _collider1.y, _collider2.x, _collider2.y) < _collider1.r + _collider2.r){
+			return true;
+		}
 	}
 	return false;
 }
