@@ -128,7 +128,7 @@ class player{
 	}
 	update(){
 		if(this.span > 0){ this.span--; }
-		if(doubleClickFlag){ this.shotChange(); flagReset(); }
+		if(doubleClickFlag){ this.shotChange(); flagReset(); } // ダブルクリックでショットを変える
 		let d = dist(mouseX, mouseY, this.p.x, this.p.y);
 		if(d < 5){ return; }
 		let angle = atan2(mouseY - this.p.y, mouseX - this.p.x);
@@ -273,10 +273,11 @@ class simpleEnemy extends enemy{
 		fill(this.c.r, this.c.g, this.c.b, this.count * 2);
 		ellipse(this.p.x, this.p.y, this.diam, this.diam);
 		this.count++;
-		if(this.count > 128){ this.count = 0; this.visible = true; }
+		if(this.count > 120){ this.count = 0; this.visible = true; }
 	}
 	update(){
-		if(!this.visible || !this.alive){ return; }
+		if(!this.alive){ return; }
+		// appearの間に画面内に姿を表す処理したいわね。
 	}
 	render(){
 		if(this.alive && !this.visible){ this.appear(); return; }
@@ -305,10 +306,6 @@ class master{
 		this.player.initialize(20, 380, 2);
 	}
 	regist(){
-		//let ef1 = new circleVanish(60, 60, 10, 255, 0, 0, 200, 200);
-		//let ef2 = new circleVanish(60, 80, 10, 0, 255, 0, 100, 200);
-		//let ef3 = new circleVanish(60, 90, 10, 0, 0, 255, 300, 200);
-		//this.effectArray.push(...[ef1, ef2, ef3]);
 		for(let x = 100; x <= 300; x += 40){
 			for(let y = 100; y <= 300; y += 40){
 				let e = new simpleEnemy();
@@ -316,11 +313,6 @@ class master{
 				this.enemyArray.push(e);
 			}
 		}
-		//let e1 = new simpleEnemy();
-		//let e2 = new simpleEnemy();
-		//e1.initialize(15, 200, 100, 20, 0, 0, 255);
-		//e2.initialize(15, 200, 200, 20, 255, 0, 0);
-		//this.enemyArray.push(...[e1, e2]);
 	}
 	createBullet(id, p, c, angle){
 		switch(id){
@@ -372,7 +364,6 @@ class master{
 				if(collideObjects(b.collider, e.collider)){
 					b.hit();
 					e.hit(b);
-					if(!e.alive){ this.createKilledEffect(e); }
 					break;
 				}
 			}
@@ -398,7 +389,10 @@ class master{
 		}
 		for(let i = 0; i < this.enemyArray.length; i++){
 			let e = this.enemyArray[i];
-			if(!e.alive){ this.enemyArray.splice(i, 1); }
+			if(!e.alive){
+				this.createKilledEffect(e);
+				this.enemyArray.splice(i, 1);
+			}
 		}
 	}
 }
@@ -427,4 +421,8 @@ function allRender(arrayOfArray){
 // 押してる時間でショットが変わるやつはゲージを用意する感じで（ぐるーって）
 // そこらへんもshotIdで制御、できるでしょ。
 
-// effectは衝突判定で出すべき
+// effectはejectで出していいや。
+
+// 敵に当たってさ、倒した場合に進行方向を含む8方向に分裂するとかね。
+// 敵のモーション作りたいわね
+// 動かそうよー
