@@ -242,6 +242,7 @@ class enemy{
 	constructor(){
 		this.typeName = "";
 		this.hp = 0;
+		this.maxHp = 0;
 		this.p = {};
 		this.count = 0;
 		this.visible = false;
@@ -263,6 +264,7 @@ class simpleEnemy extends enemy{
 	}
 	initialize(hp, x, y, diam, r, g, b){
 		this.hp = hp;
+		this.maxHp = hp;
 		this.p.x = x;
 		this.p.y = y;
 		this.diam = diam;
@@ -271,7 +273,12 @@ class simpleEnemy extends enemy{
 	}
 	appear(){
 		fill(this.c.r, this.c.g, this.c.b, this.count * 2);
-		ellipse(this.p.x, this.p.y, this.diam, this.diam);
+		for(let i = 0; i < 5; i++){
+			let angle = 2 * Math.PI * (this.count + 12 * i) / 60;
+			let r = 30 - this.count / 4;
+			ellipse(this.p.x + r * Math.cos(angle), this.p.y + r * Math.sin(angle), this.diam, this.diam);
+		}
+		//ellipse(this.p.x, this.p.y, this.diam, this.diam);
 		this.count++;
 		if(this.count > 120){ this.count = 0; this.visible = true; }
 	}
@@ -283,6 +290,11 @@ class simpleEnemy extends enemy{
 		if(this.alive && !this.visible){ this.appear(); return; }
 		fill(this.c.r, this.c.g, this.c.b);
 		ellipse(this.p.x, this.p.y, this.diam, this.diam);
+		// HPゲージ
+		fill(0);
+		rect(this.p.x - this.diam, this.p.y + this.diam, this.diam * 2, 5);
+		fill(this.c.r, this.c.g, this.c.b);
+		rect(this.p.x - this.diam, this.p.y + this.diam, this.diam * 2 *  this.hp / this.maxHp, 5);
 	}
 	hit(_bullet){
 		this.hp -= _bullet.damage;
@@ -306,13 +318,16 @@ class master{
 		this.player.initialize(20, 380, 2);
 	}
 	regist(){
-		for(let x = 100; x <= 300; x += 40){
-			for(let y = 100; y <= 300; y += 40){
-				let e = new simpleEnemy();
-				e.initialize(15, x, y, 20, 255, x / 2 - 50, y / 2 - 50);
-				this.enemyArray.push(e);
-			}
-		}
+		//for(let x = 100; x <= 300; x += 40){
+		//	for(let y = 100; y <= 300; y += 40){
+		//		let e = new simpleEnemy();
+		//		e.initialize(15, x, y, 20, 255, x / 2 - 50, y / 2 - 50);
+		//		this.enemyArray.push(e);
+		//	}
+		//}
+		let e = new simpleEnemy();
+		e.initialize(50, 200, 50, 20, 0, 0, 255);
+		this.enemyArray.push(e);
 	}
 	createBullet(id, p, c, angle){
 		switch(id){
