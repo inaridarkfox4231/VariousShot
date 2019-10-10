@@ -9,7 +9,7 @@ const bodyColor = [[0, 0, 0], [27, 139, 61]];
 const spanArray = [5, 10]; // span関係ないところは-1で補間
 
 function setup() {
-	createCanvas(400, 400);
+	createCanvas(640, 480);
 	noStroke();
 	all = new master();
 	all.initialize();
@@ -237,6 +237,7 @@ class bendBullet extends bullet{
 		}
 	}
 }
+// ていうかクラス使わないで動きを表現できないかなーって。
 
 class enemy{
 	constructor(){
@@ -244,6 +245,7 @@ class enemy{
 		this.hp = 0;
 		this.maxHp = 0;
 		this.p = {};
+		this.v = {};
 		this.count = 0;
 		this.visible = false;
 		this.alive = true;
@@ -262,36 +264,41 @@ class simpleEnemy extends enemy{
 		this.diam = 0;
 		this.c = {};
 	}
-	initialize(hp, x, y, diam, r, g, b){
+	initialize(hp, x, y, vx, vy, diam, r, g, b){
 		this.hp = hp;
 		this.maxHp = hp;
 		this.p.x = x;
 		this.p.y = y;
+		this.v.x = vx;
+		this.v.y = vy;
 		this.diam = diam;
 		this.c = {r:r, g:g, b:b};
 		this.collider = new circleCollider(x, y, diam / 2);
 	}
 	appear(){
-		fill(this.c.r, this.c.g, this.c.b, this.count * 2);
+		fill(this.c.r, this.c.g, this.c.b, this.count * 4);
 		for(let i = 0; i < 5; i++){
-			let angle = 2 * Math.PI * (this.count + 12 * i) / 60;
-			let r = 30 - this.count / 4;
+			let angle = Math.PI * 2 * (this.count + 6 * i) / 30;
+			let r = 30 - this.count / 2;
 			ellipse(this.p.x + r * Math.cos(angle), this.p.y + r * Math.sin(angle), this.diam, this.diam);
 		}
-		//ellipse(this.p.x, this.p.y, this.diam, this.diam);
 		this.count++;
-		if(this.count > 120){ this.count = 0; this.visible = true; }
+		if(this.count > 60){ this.count = 0; this.visible = true; }
 	}
 	update(){
-		if(!this.alive){ return; }
+		if(!this.visible || !this.alive){ return; }
 		// appearの間に画面内に姿を表す処理したいわね。
+		this.p.x += this.v.x;
+		this.p.y += this.v.y;
+		this.collider.update(this.p.x, this.p.y, this.diam / 2);
+		if(this.p.x < this.diam / 2 || this.p.x > width - this.diam / 2 || this.p.y < this.diam / 2 || this.p.y > height - this.diam / 2){ this.eject(); }
 	}
 	render(){
 		if(this.alive && !this.visible){ this.appear(); return; }
 		fill(this.c.r, this.c.g, this.c.b);
 		ellipse(this.p.x, this.p.y, this.diam, this.diam);
 		// HPゲージ
-		fill(0);
+		fill(150);
 		rect(this.p.x - this.diam, this.p.y + this.diam, this.diam * 2, 5);
 		fill(this.c.r, this.c.g, this.c.b);
 		rect(this.p.x - this.diam, this.p.y + this.diam, this.diam * 2 *  this.hp / this.maxHp, 5);
@@ -311,6 +318,7 @@ class master{
 		this.player = new player();
 		this.effectArray = [];
 		this.bulletArray = [];
+		this.enemyBulletArray = [];
 		this.enemyArray = [];
 		this.regist();
 	}
@@ -318,16 +326,14 @@ class master{
 		this.player.initialize(20, 380, 2);
 	}
 	regist(){
-		//for(let x = 100; x <= 300; x += 40){
-		//	for(let y = 100; y <= 300; y += 40){
-		//		let e = new simpleEnemy();
-		//		e.initialize(15, x, y, 20, 255, x / 2 - 50, y / 2 - 50);
-		//		this.enemyArray.push(e);
-		//	}
-		//}
-		let e = new simpleEnemy();
-		e.initialize(50, 200, 50, 20, 0, 0, 255);
-		this.enemyArray.push(e);
+    for(let x = 100; x < 540; x += 80){
+			let e = new simpleEnemy();
+			e.initialize(30, x, 30, 0, 1, 20, 255, 0, x / 10);
+			this.enemyArray.push(e);
+		}
+		//let e = new simpleEnemy();
+		//e.initialize(50, 200, 50, 0, 1, 20, 0, 0, 255);
+		//this.enemyArray.push(e);
 	}
 	createBullet(id, p, c, angle){
 		switch(id){
