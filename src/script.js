@@ -33,6 +33,9 @@ function flagReset(){
 	doubleClickFlag = false;
 }
 
+// ----------------------------------------------------------------------------------- //
+// master.
+
 class master{
 	constructor(){
 		this.stateArray = [];
@@ -54,6 +57,9 @@ class master{
 		this.currentState.render(this);
 	}
 }
+
+// ----------------------------------------------------------------------------------- //
+// state関連（play以外）
 
 // 数を返す(0とか1とか）
 // たとえば0を返すうちはstateは変化しない
@@ -109,6 +115,9 @@ class select extends state{
 		rect(420, 200, 120, 80);
 	}
 }
+
+// ----------------------------------------------------------------------------------- //
+// play state.
 
 class play extends state{
 	constructor(){
@@ -237,7 +246,9 @@ class play extends state{
 	}
 }
 
-// collider.
+// ----------------------------------------------------------------------------------- //
+// collider関連。
+
 class collider{
 	constructor(id){
 		this.typeName = "";
@@ -297,7 +308,9 @@ function collideObjects(_collider1, _collider2){
 	return false;
 }
 
-// player側からmasterのbulletArrayに放り込む？
+// ----------------------------------------------------------------------------------- //
+// player関連。
+
 class player{
 	constructor(x, y, speed, life){
 		this.x = x;
@@ -386,6 +399,9 @@ class player{
 		this.alive = false;
 	}
 }
+
+// ----------------------------------------------------------------------------------- //
+// enemy, bullet関連
 
 // うごくもの
 // (x, y)は長方形の中心、(w, h)は辺の長さの半分。
@@ -494,6 +510,9 @@ class bullet extends mover{
 		this.alive = false;
 	}
 }
+
+// ----------------------------------------------------------------------------------- //
+// command関連（いずれクラス化）
 
 function createSetV(vx, vy){ return (m) => {m.vx = vx; m.vy = vy; m.shiftMoveIndex(1); }; }
 function straight(m){ m.x += m.vx; m.y += m.vy; }
@@ -660,6 +679,9 @@ function createGenerateLoop(n, limit){ return (g) => {
 	if(g.gLoop < limit || limit < 0){ g.shiftIndex(-n); } // limitに-1を指定すると無限ループ
 	else{ g.gLoop = 0; g.shiftIndex(1); }
 } }
+
+// ----------------------------------------------------------------------------------- //
+// effect関連
 
 class effect{
 	constructor(span){
