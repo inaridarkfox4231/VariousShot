@@ -155,13 +155,7 @@ class play extends state{
 			_master.shiftIndex(-1);
 			flagReset();
 		}
-		this.generator.update();
-		this.player.update();
-		this.enemyArray.forEach((e) => { e.update(); })
-		this.playerBulletArray.forEach((b) => { b.update(); })
-		this.enemyBulletArray.forEach((b) => { b.update(); })
-		this.appearEffectArray.forEach((ef) => { ef.update(); })
-		this.vanishEffectArray.forEach((ef) => { ef.update(); })
+		every([[this.generator, this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.appearEffectArray, this.vanishEffectArray], "update");
 		this.collisionCheck();
 		this.charge();
 		this.eject();
@@ -199,13 +193,7 @@ class play extends state{
 		text("bullet " + (this.enemyBulletArray.length + this.playerBulletArray.length), 100, 200);
 		fill(255, 0, 0);
 		rect(0, 0, 40, 40);
-		//this.player.render();
-		//this.enemyArray.forEach((e) => { e.render(); })
 		every([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.appearEffectArray, this.vanishEffectArray], "render");
-		//this.playerBulletArray.forEach((b) => { b.render(); })
-		//this.enemyBulletArray.forEach((b) => { b.render(); })
-		//this.appearEffectArray.forEach((ef) => { ef.render(); })
-		//this.vanishEffectArray.forEach((ef) => { ef.render(); })
 	}
 	charge(){
 		this.generator.charge(this.appearEffectArray); // ここでエフェクトも同時に発生させてエフェクトが終わり次第・・みたいな。
@@ -234,7 +222,7 @@ class play extends state{
 		for(let i = 0; i < this.appearEffectArray.length; i++){
 			let ef = this.appearEffectArray[i];
 			if(ef.finished){
-				this.enemyArray.push(ef.enemy);
+				this.enemyArray.push(ef.enemy); // appearEffectが終わり次第敵を出現させる
 				this.appearEffectArray.splice(i, 1);
 			}
 		}
@@ -247,7 +235,7 @@ class play extends state{
 	}
 }
 
-// すべてのあれに何か同じことをさせる汎用関数
+// すべてのあれに何か同じことをさせる汎用関数（everyUpdate, everyRender, etc）
 function every(arrayOfArray, actName){
 	arrayOfArray.forEach((array) => { array.forEach((obj) => { obj[actName](); }) })
 }
