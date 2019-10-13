@@ -199,12 +199,13 @@ class play extends state{
 		text("bullet " + (this.enemyBulletArray.length + this.playerBulletArray.length), 100, 200);
 		fill(255, 0, 0);
 		rect(0, 0, 40, 40);
-		this.player.render();
-		this.enemyArray.forEach((e) => { e.render(); })
-		this.playerBulletArray.forEach((b) => { b.render(); })
-		this.enemyBulletArray.forEach((b) => { b.render(); })
-		this.appearEffectArray.forEach((ef) => { ef.render(); })
-		this.vanishEffectArray.forEach((ef) => { ef.render(); })
+		//this.player.render();
+		//this.enemyArray.forEach((e) => { e.render(); })
+		every([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.appearEffectArray, this.vanishEffectArray], "render");
+		//this.playerBulletArray.forEach((b) => { b.render(); })
+		//this.enemyBulletArray.forEach((b) => { b.render(); })
+		//this.appearEffectArray.forEach((ef) => { ef.render(); })
+		//this.vanishEffectArray.forEach((ef) => { ef.render(); })
 	}
 	charge(){
 		this.generator.charge(this.appearEffectArray); // ここでエフェクトも同時に発生させてエフェクトが終わり次第・・みたいな。
@@ -244,6 +245,11 @@ class play extends state{
 			}
 		}
 	}
+}
+
+// すべてのあれに何か同じことをさせる汎用関数
+function every(arrayOfArray, actName){
+	arrayOfArray.forEach((array) => { array.forEach((obj) => { obj[actName](); }) })
 }
 
 // ----------------------------------------------------------------------------------- //
@@ -354,8 +360,8 @@ class player{
 		this.span = spanArray[this.shotId];
 	}
 	move(){
-		let d = dist(this.x, this.y, mouseX, mouseY);
-		if(d < 10){ return; }
+		let d = max(abs(this.x - mouseX), abs(this.y - mouseY));
+		if(d < 8){ return; }
 		let angle = atan2(mouseY - this.y, mouseX - this.x);
 		this.x += this.speed * Math.cos(angle);
 		this.y += this.speed * Math.sin(angle);
@@ -379,11 +385,8 @@ class player{
 	render(){
 		if(!this.alive){ return; }
 		noStroke();
-		if(this.blink > 0 && Math.floor(this.blink / 2) % 2 === 0){
-			fill(this.c.r, this.c.g, this.c.b, 100);
-		}else{
-		  fill(this.c.r, this.c.g, this.c.b);
-		}
+		if(this.blink > 0 && Math.floor(this.blink / 2) % 2 === 0){ return; }
+		fill(this.c.r, this.c.g, this.c.b);
 		rect(this.x - 8, this.y - 8, 16, 16);
 	}
 	hit(obj){
