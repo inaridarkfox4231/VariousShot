@@ -263,11 +263,34 @@ class circleCollider extends collider{
 	}
 }
 
+// x, yは左上の座標。
+// colliderのパラメータとしては、中心の座標(x, y)及び横の長さの半分wと縦の長さの半分hという感じにする
+class rectCollider extends collider{
+	constructor(id, x, y, w, h){
+		super(id);
+		this.typeName = 'rect';
+		this.x = x + (w / 2);
+		this.y = y + (h / 2);
+		this.w = w / 2;
+		this.h = h / 2;
+	}
+	update(x, y, w, h){
+		this.x = x + (w / 2);
+		this.y = y + (h / 2);
+		this.w = w / 2;
+		this.h = h / 2;
+	}
+}
+
 function collideObjects(_collider1, _collider2){
 	if(_collider1.typeName === 'circle' && _collider2.typeName === 'circle'){
 		if(dist(_collider1.x, _collider1.y, _collider2.x, _collider2.y) < _collider1.r + _collider2.r){
 			return true;
 		}
+	}else if(_collider1.typeName === 'rect' && _collider2.typeName === 'rect'){
+		let f1 = (abs(_collider1.x - _collider2.x) < _collider1.w + _collider2.w);
+		let f2 = (abs(_collider1.y - _collider2.y) < _collider1.h + _collider2.h);
+		if(f1 && f2){ return true; }
 	}
 	return false;
 }
