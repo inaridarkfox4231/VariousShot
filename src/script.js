@@ -135,6 +135,7 @@ class play extends state{
 	setLevel(newLv){
 		this.lv = newLv;
 		// レベルに応じた敵出現シークエンス
+    // ゆくゆくはjsonに落とすつもり
 		let array = [createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:100}]), createGenerateWait(40), createGenerateLoop(2, 5)];
 		array.push(...[createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:380}]), createGenerateWait(40), createGenerateLoop(2, 5)]);
 		this.generator.setCommand(array);
