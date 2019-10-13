@@ -265,20 +265,22 @@ class circleCollider extends collider{
 
 // x, yは左上の座標。
 // colliderのパラメータとしては、中心の座標(x, y)及び横の長さの半分wと縦の長さの半分hという感じにする
+// と思ったけどやめた。rectの描画の時だけ計算するようにしよ。bullet発射時とか面倒だし。
+// というわけでwやhは辺の長さの半分になります。
 class rectCollider extends collider{
 	constructor(id, x, y, w, h){
 		super(id);
 		this.typeName = 'rect';
-		this.x = x + (w / 2);
-		this.y = y + (h / 2);
-		this.w = w / 2;
-		this.h = h / 2;
+		this.x = x;
+		this.y = y;
+		this.w = w;
+		this.h = h;
 	}
 	update(x, y, w, h){
-		this.x = x + (w / 2);
-		this.y = y + (h / 2);
-		this.w = w / 2;
-		this.h = h / 2;
+		this.x = x;
+		this.y = y;
+		this.w = w;
+		this.h = h;
 	}
 }
 
@@ -309,7 +311,8 @@ class player{
 		this.maxShotId = 1;
 		this.span = 0; // 射出間隔
 		this.blink = 60; // ブリンク(正の時無敵）
-		this.collider = new circleCollider(0, x, y, 5);
+		//this.collider = new circleCollider(0, x, y, 5);
+		this.collider = new rectCollider(0, x, y, 8, 8); // グラフィック16x16
 	}
 	initialize(x, y, speed, life){
 		this.x = x;
@@ -352,22 +355,23 @@ class player{
 		if(this.blink > 0){ this.blink--; }
 		if(doubleClickFlag){ this.shotChange(); flagReset(); }
 		this.move();
-		this.collider.update(this.x, this.y, 10);
+		this.collider.update(this.x, this.y, 8, 8);
 	}
 	boundCheck(){
-		if(this.x < 10){ this.x = 10; }
-		else if(this.x > width - 10){ this.x = width - 10; }
-		if(this.y < 10){ this.y = 10; }
-		else if(this.y > height - 10){ this.y = height - 10; }
+		if(this.x < 8){ this.x = 8; }
+		else if(this.x > width - 8){ this.x = width - 8; }
+		if(this.y < 8){ this.y = 8; }
+		else if(this.y > height - 8){ this.y = height - 8; }
 	}
 	render(){
 		if(!this.alive){ return; }
-		if(this.blink > 0 && Math.floor(this.blink / 2) % 2 === 0){ return; }
 		noStroke();
-    fill(this.c.r, this.c.g, this.c.b, 100);
-		ellipse(this.x, this.y, 20, 20);
-		fill(this.c.r, this.c.g, this.c.b);
-		ellipse(this.x, this.y, 10, 10);
+		if(this.blink > 0 && Math.floor(this.blink / 2) % 2 === 0){
+			fill(this.c.r, this.c.g, this.c.b, 100);
+		}else{
+		  fill(this.c.r, this.c.g, this.c.b);
+		}
+		rect(this.x - 8, this.y - 8, 16, 16);
 	}
 	hit(obj){
 		// objはenemy又はenemyBullet. colliderのidで判定する。
@@ -384,8 +388,9 @@ class player{
 }
 
 // うごくもの
+// (x, y)は長方形の中心、(w, h)は辺の長さの半分。
 class mover{
-	constructor(x, y, diam, moveArray, shotArray, r, g, b){
+	constructor(x, y, w, h, moveArray, shotArray, r, g, b){
 		this.mt = 0; // moveArray用の制御変数
 		this.mLoop = 0; // moveArray用のループカウンタ
 		this.st = 0; // shotArray用の制御変数
@@ -395,7 +400,9 @@ class mover{
 		this.vx = 0;
 		this.vy = 0;
 		this.c = {r:r, g:g, b:b};
-		this.diam = diam;
+		//this.diam = diam;
+		this.w = w;
+		this.h = h;
 		this.moveArray = moveArray;
 		this.moveIndex = 0;
 		this.currentMove = moveArray[0];
@@ -406,7 +413,7 @@ class mover{
 		this.shotId = -1;
 		this.fire = false;
 		this.alive = true;
-		this.collider = new circleCollider(-1, x, y, diam / 2);
+		this.collider = new rectCollider(-1, x, y, w, h);
 	}
 	charge(array){
     if(!this.fire){ return; }
@@ -430,7 +437,7 @@ class mover{
 		this.alive = false;
 	}
 	boundCheck(){
-		if(this.x < this.diam / 2 || this.x > width - this.diam / 2 || this.y < this.diam / 2 || this.y > height - this.diam / 2){
+		if(this.x < this.w || this.x > width - this.w || this.y < this.h || this.y > height - this.h){
 			this.eject();
 		}
 	}
@@ -449,19 +456,20 @@ class mover{
 	update(){
 		this.act();
 		this.boundCheck();
-		this.collider.update(this.x, this.y, this.diam / 2);
+		this.collider.update(this.x, this.y, this.w, this.h);
 	}
 	render(){
 	  if(!this.alive){ return; }
 		fill(this.c.r, this.c.g, this.c.b);
-		ellipse(this.x, this.y, this.diam, this.diam);
+		rect(this.x - this.w, this.y - this.h, this.w * 2, this.h * 2);
+		//ellipse(this.x, this.y, this.diam, this.diam);
 	}
 }
 
 // enemy側からmasterのenemyBulletArrayに放り込むか
 class enemy extends mover{
-	constructor(x, y, diam, moveArray, shotArray, r, g, b, life){
-		super(x, y, diam, moveArray, shotArray, r ,g, b);
+	constructor(x, y, w, h, moveArray, shotArray, r, g, b, life){
+		super(x, y, w, h, moveArray, shotArray, r ,g, b);
 		this.life = life;
 		this.maxLife = life;
 	}
@@ -477,8 +485,8 @@ class enemy extends mover{
 }
 
 class bullet extends mover{
-  constructor(x, y, diam, moveArray, shotArray, r, g, b, damage){
-		super(x, y, diam, moveArray, shotArray, r, g, b);
+  constructor(x, y, w, h, moveArray, shotArray, r, g, b, damage){
+		super(x, y, w, h, moveArray, shotArray, r, g, b);
 		this.damage = damage;
 	}
 	hit(obj){
@@ -543,7 +551,7 @@ function getEnemy(id, x, y){
 		case 0:
 			let mArray = [createSetV(-2, 0), straight];
 			let sArray = [createSetShot(32), createShotWait(30), createShotLoop(2, 5)];
-			return new enemy(x, y, 20, mArray, sArray, 255, 201, 14, 15); // lifeは15.
+			return new enemy(x, y, 10, 10, mArray, sArray, 255, 201, 14, 15); // lifeは15.
 	}
 }
 
@@ -562,7 +570,7 @@ function getBullet(_obj){
 
 function getStraight(_obj){
 	let mArray = [createSetV(8, 0), straight];
-	return [new bullet(_obj.x, _obj.y, 10, mArray, [], 0, 0, 0, 5)]; // ダメージは5
+	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
 }
 
 function toPlayer(_obj){
@@ -570,7 +578,7 @@ function toPlayer(_obj){
 	let vx = 3 * Math.cos(dir);
 	let vy = 3 * Math.sin(dir);
 	let mArray = [createSetV(vx, vy), straight];
-	return [new bullet(_obj.x, _obj.y, 10, mArray, [], 163, 73, 164, 5)]; // ダメージは5
+	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
 }
 
 // てきをつくる
@@ -674,12 +682,13 @@ class simpleAppear extends effect{
 		let x = this.enemy.x;
 		let y = this.enemy.y;
 		let c = this.enemy.c;
-		let diam = this.enemy.diam;
+		let w = this.enemy.w;
+		let h = this.enemy.h;
 		fill(c.r, c.g, c.b, 255 * this.count / this.span); // 30くらいを想定
 		for(let i = 0; i < 4; i++){
 			let angle = Math.PI * 2 * ((12 * i + this.count) / 48);
-			let r = diam * 2 * (this.span - this.count) / this.span;
-			ellipse(x + r * Math.cos(angle), y + r * Math.sin(angle), diam, diam);
+			let r = (w + h) * (this.span - this.count) / this.span;
+			rect(x + r * Math.cos(angle) - w, y + r * Math.sin(angle) - h, w * 2, h * 2);
 		}
 	}
 }
@@ -690,7 +699,7 @@ class simpleVanish extends effect{
 		this.x = obj.x;
 		this.y = obj.y;
 		this.c = obj.c;
-		this.diam = obj.diam;
+		this.diam = 2 * Math.sqrt(obj.w * obj.w + obj.h * obj.h);
 	}
 	render(){
 	  let radius = this.diam * Math.pow(this.count / this.span, 2) * 2;
