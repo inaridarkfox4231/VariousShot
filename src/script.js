@@ -145,8 +145,10 @@ class play extends state{
 		this.lv = newLv;
 		// レベルに応じた敵出現シークエンス
     // ゆくゆくはjsonに落とすつもり
-		let array = [createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:100}]), createGenerateWait(40), createGenerateLoop(2, 5)];
-		array.push(...[createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:380}]), createGenerateWait(40), createGenerateLoop(2, 5)]);
+		let array = [wait(120), simpleGenerate([0], [{x:600, y:100}]), wait(40), shiftLoop(2, 5)];
+		array.push(...[wait(120), simpleGenerate([0], [{x:600, y:380}]), wait(40), shiftLoop(2, 5)]);
+		//let array = [createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:100}]), createGenerateWait(40), createGenerateLoop(2, 5)];
+		//array.push(...[createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:380}]), createGenerateWait(40), createGenerateLoop(2, 5)]);
 		this.generator.setCommand(array);
 	}
 	update(_master){
@@ -233,11 +235,6 @@ class play extends state{
 			}
 		}
 	}
-}
-
-// すべてのあれに何か同じことをさせる汎用関数（everyUpdate, everyRender, etc）
-function every(arrayOfArray, actName){
-	arrayOfArray.forEach((array) => { array.forEach((obj) => { obj[actName](); }) })
 }
 
 // ----------------------------------------------------------------------------------- //
@@ -406,17 +403,19 @@ class mover{
 		this.w = w;
 		this.h = h;
 		// ここから
-		this.moveArray = moveArray;
-		this.moveIndex = 0;
-		this.currentMove = moveArray[0];
-		this.shotArray = shotArray;
-		this.shotIndex = 0;
-		this.currentShot = undefined;
-		this.mt = 0; // moveArray用の制御変数
-		this.mLoop = 0; // moveArray用のループカウンタ
-		this.st = 0; // shotArray用の制御変数
-		this.sLoop = 0; // shotArray用のループカウンタ
-		if(shotArray.length > 0){ this.currentShot = shotArray[0]; }
+		this.moveArray = new commandArray(moveArray);
+		this.shotArray = new commandArray(shotArray);
+		//this.moveArray = moveArray;
+		//this.moveIndex = 0;
+		//this.currentMove = moveArray[0];
+		//this.shotArray = shotArray;
+		//this.shotIndex = 0;
+		//this.currentShot = undefined;
+		//this.mt = 0; // moveArray用の制御変数
+		//this.mLoop = 0; // moveArray用のループカウンタ
+		//this.st = 0; // shotArray用の制御変数
+		//this.sLoop = 0; // shotArray用のループカウンタ
+		//if(shotArray.length > 0){ this.currentShot = shotArray[0]; }
 		// ここまでの部分が2行になる、うまく行けば。
 		// できればそれに加えて全体の挙動に関するやつをもうひとつ追加したい。HPが0になったら死ぬ、とか。
 		// そうやるとHPが0になったときに弾を発射して死ぬとか出来る可能性がある（可能性）。
@@ -436,8 +435,8 @@ class mover{
 		this.shotId = newShotId;
 		this.fire = true;
 	}
-	rotateDirection(deg){
-		let angle = deg * Math.PI / 180;
+	rotateDirection(degree){
+		let angle = degree * Math.PI / 180;
 		let _vx = this.vx;
 		let _vy = this.vy;
 		this.vx = _vx * Math.cos(angle) - _vy * Math.sin(angle);
@@ -452,17 +451,19 @@ class mover{
 		}
 	}
 	act(){
-		this.currentMove(this);
-		if(this.currentShot !== undefined){ this.currentShot(this); }
+		//this.currentMove(this);
+		//if(this.currentShot !== undefined){ this.currentShot(this); }
+		this.moveArray.execute(this);
+		this.shotArray.execute(this);
 	}
-	shiftMoveIndex(n){
-		this.moveIndex += n;
-		this.currentMove = this.moveArray[this.moveIndex];
-	}
-	shiftShotIndex(n){
-		this.shotIndex += n;
-		this.currentShot = this.shotArray[this.shotIndex];
-	}
+	//shiftMoveIndex(n){
+	//	this.moveIndex += n;
+	//	this.currentMove = this.moveArray[this.moveIndex];
+	//}
+	//shiftShotIndex(n){
+	//	this.shotIndex += n;
+	//	this.currentShot = this.shotArray[this.shotIndex];
+	//}
 	update(){
 		this.act();
 		this.boundCheck();
@@ -509,85 +510,116 @@ class bullet extends mover{
 // command関連（いずれクラス化）
 
 // 多分こんなの
-class actionArray{
-	constructor(){
-		this.seq = [];
+class commandArray{
+	constructor(seq){
+		this.seq = seq;
 		this.t = 0;
 		this.loopCounter = 0;
 		this.index = 0;
-		this.currentAction = undefined;
+		this.currentCommand = undefined;
+		if(seq.length > 0){ this.currentCommand = seq[0]; }
+	}
+	setCommand(seq){
+		this.seq = seq;
+		this.t = 0;
+		this.loopCounter = 0;
+		this.index = 0;
+		if(seq.length > 0){ this.currentCommand = seq[0]; }
 	}
 	shiftIndex(n){
 		this.index += n;
-		this.currentAction = this.seq[this.index];
+		this.currentCommand = this.seq[this.index];
 	}
-	inputAction(seq){
+	setIndex(n){
+		this.index = n;
+		this.currentCommand = this.seq[this.index];
+	}
+	inputCommand(seq){
 		if(seq.length === 0){ return; }
 		this.seq = seq;
-		this.currentAction = this.seq[0];
+		this.currentCommand = this.seq[0];
 	}
 	execute(obj){
-		if(this.seq.length === 0){ return; }
-		this.currentAction(obj);
+		if(this.seq.length === 0 || this.currentCommand === undefined){ return; }
+		this.currentCommand(obj, this);
 	}
 }
 
-function createSetV(vx, vy){ return (m) => {m.vx = vx; m.vy = vy; m.shiftMoveIndex(1); }; }
-function straight(m){ m.x += m.vx; m.y += m.vy; }
-function createStraightWithBound(a, b, c){ return (m) => {
-	m.x += m.vx; m.y += m.vy;
-	if(a * m.x + b * m.y > c){ m.shiftMoveIndex(1); }
-}}
-function createRotation(deg){ return (m) => { m.rotateDirection(deg); }; }
-function createRotationWithLimit(deg, limit){
-	return (m) => {
-		m.mt++;
-		m.rotateDirection(deg);
-		m.x += m.vx; m.y += m.vy;
-		if(m.mt < limit){ return; }
-		m.mt = 0; m.shiftMoveIndex(1);
-	}
-}
-function createBack(n){ return (m) => { m.shiftMoveIndex(-n); } }
-// n個戻すか、先に進めるか
-function createMoveLoop(n, limit){ return (m) => {
-	m.mLoop++;
-	if(m.mLoop < limit || limit < 0){ m.shiftMoveIndex(-n); } // limitに-1を指定すると無限ループ
-	else{ m.mLoop = 0; m.shiftMoveIndex(1);}
-} }
-function createMoveWait(limit){ return (m) => {
-	m.mt++;
-	if(m.mt < limit){ return; }
-	m.mt = 0; m.shiftMoveIndex(1);
-} } // limitだけ間を置く
+// 以下、大幅に書き直し。mのところはobj, あとcArray(いずれcommandArrayにする)にしないと。
+// メソッド名もいじる。createは長いし意味がないので削る。
 
-function createSetShot(id){
-	return (m) => { m.setShot(id); m.shiftShotIndex(1); };
-} // ショット設定
-function createShotWait(limit){ return (m) => {
-	m.st++;
-	if(m.st < limit){ return; }
-	m.st = 0; m.shiftShotIndex(1);
-} } // limitだけ間を置く
-function createShotLoop(n, limit){ return (m) => {
-	m.sLoop++;
-	if(m.sLoop < limit || limit < 0){ m.shiftShotIndex(-n); } // limitに-1を指定すると無限ループ
-	else{ m.sLoop = 0; m.shiftShotIndex(1); }
+function setV(vx, vy){ return (obj, cArray) => {obj.vx = vx; obj.vy = vy; cArray.shiftIndex(1); }; }
+function straight(obj, cArray){ obj.x += obj.vx; obj.y += obj.vy; }
+function straightWithLineBound(a, b, c){ return (obj, cArray) => {
+	obj.x += obj.vx; obj.y += obj.vy;
+	if(a * obj.x + b * obj.y < c){ return; }
+	cArray.shiftIndex(1);
+} }
+function rot(degree){ return (obj, cArray) => {
+  obj.rotateDirection(degree);
+	cArray.shiftIndex(1);
+} }
+function rotWithLimit(degree, limit){ return (obj, cArray) => {
+		cArray.t++;
+		obj.rotateDirection(deg);
+		obj.x += obj.vx; obj.y += obj.vy;
+		if(cArray.t < limit){ return; }
+		cArray.t = 0;
+		cArray.shiftIndex(1);
 } }
 
-// (x, y)からプレイヤーへの方向
-function getPlayerDirection(x, y){
-	let p = all.currentState.player;
-	return atan2(p.y - y, p.x - x);
-}
+// shiftは相対変化、warpは絶対変化。たとえばピンポイントで0にして、とかいう風に使う。
+function jump(n){ return (obj, cArray) => { cArray.shiftIndex(n); } }
+function back(n){ return (obj, cArray) => { cArray.shiftIndex(-n); } }
+function warp(n){ return (obj, cArray) => { cArray.setIndex(n); } }
+function randomWarp(nArray){ return (obj, cArray) => { cArray.setIndex(random(nArray)); } }
+
+// n個戻すか、先に進めるか。たとえばlimit===2なら2周する感じ。
+function shiftLoop(n, limit){ return (obj, cArray) => {
+	cArray.loopCounter++;
+	if(cArray.loopCounter < limit){ cArray.shiftIndex(-n); } // 無限ループならbackでいい
+	else{ cArray.loopCounter = 0; cArray.shiftIndex(1);}
+} }
+// ループの絶対指定バージョン（使い方に注意、後ろに戻らないとおかしなことになる）
+function warpLoop(n, limit){ return (obj, cArray) => {
+	cArray.loopCounter++;
+	if(cArray.loopCounter < limit){ cArray.setIndex(n); } // 無限ループならbackでいい
+	else{ cArray.loopCounter = 0; cArray.shiftIndex(1);}
+} }
+
+function wait(limit){ return (obj, cArray) => {
+	cArray.t++;
+	if(cArray.t < limit){ return; }
+	cArray.t = 0; cArray.shiftIndex(1);
+} } // limitだけ間を置く
+function setShot(id){ return (obj, cArray) => {
+	obj.setShot(id);
+	cArray.shiftIndex(1);
+} } // ショット設定
+
+// これはwaitでよいのでカット
+//function createShotWait(limit){ return (m) => {
+//	m.st++;
+//	if(m.st < limit){ return; }
+//	m.st = 0; m.shiftShotIndex(1);
+//} } // limitだけ間を置く
+
+// これはshiftLoopでよいのでカット
+//unction createShotLoop(n, limit){ return (m) => {
+//	m.sLoop++;
+//	if(m.sLoop < limit || limit < 0){ m.shiftShotIndex(-n); } // limitに-1を指定すると無限ループ
+//	else{ m.sLoop = 0; m.shiftShotIndex(1); }
+//} }
 
 // 以下はshotパラメータをいじるための関数
 function getEnemy(id, x, y){
 	// idによって異なるenemyを作るうえでのデータを返す感じ
 	switch(id){
 		case 0:
-			let mArray = [createSetV(-2, 0), straight];
-			let sArray = [createSetShot(32), createShotWait(30), createShotLoop(2, 5)];
+			//let mArray = [createSetV(-2, 0), straight];
+			let mArray = [setV(-2, 0), straight];
+			//let sArray = [createSetShot(32), createShotWait(30), createShotLoop(2, 5)];
+			let sArray = [setShot(32), wait(30), warpLoop(0, 5)]
 			return new enemy(x, y, 10, 10, mArray, sArray, 255, 201, 14, 15); // lifeは15.
 	}
 }
@@ -606,7 +638,8 @@ function getBullet(_obj){
 }
 
 function getStraight(_obj){
-	let mArray = [createSetV(8, 0), straight];
+	//let mArray = [createSetV(8, 0), straight];
+	let mArray = [setV(8, 0), straight];
 	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
 }
 
@@ -614,7 +647,8 @@ function toPlayer(_obj){
 	let dir = getPlayerDirection(_obj.x, _obj.y);
 	let vx = 3 * Math.cos(dir);
 	let vy = 3 * Math.sin(dir);
-	let mArray = [createSetV(vx, vy), straight];
+	//let mArray = [createSetV(vx, vy), straight];
+	let mArray = [setV(vx, vy), straight];
 	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
 }
 
@@ -633,31 +667,38 @@ function toPlayer(_obj){
 
 // idArray = [0]なら0だけ、[0, 0]なら0が2匹で別の場所、ランダム、以下略
 // ループカウンタとかウェイトは同じように
+// enemyもいくつか用意してまとめてとかそういう感じの方がいいのかも。
+// そうすればenemy配列ひとつで済む。
 class enemyGenerator{
   constructor(){
-		this.gt = 0; // 制御変数・・この辺はクラスにする？commandで統一できそう。
-		this.gLoop = 0; // ループカウンタ
+		//this.gt = 0; // 制御変数・・この辺はクラスにする？commandで統一できそう。
+		//this.gLoop = 0; // ループカウンタ
 		this.idArray = [];
 		this.posArray = [];
-		this.commandArray = [];
-		this.commandIndex = 0;
-		this.currentCommand = undefined;
+		//this.commandArray = [];
+		//this.commandIndex = 0;
+		//this.currentCommand = undefined;
+		this.generateArray = new commandArray([]);
 		this.generate = false;
 	}
 	reset(){
-		this.gt = 0;
-		this.gLoop = 0;
+		//this.gt = 0;
+		//this.gLoop = 0;
 		this.idArray = [];
 		this.posArray = [];
-		this.commandArray = [];
-		this.commandIndex = 0;
-		this.currentCommand = undefined;
+		//this.commandArray = [];
+		//this.commandIndex = 0;
+		//this.currentCommand = undefined;
+		this.generateArray.setCommand([]);
 		this.generate = false;
 	}
 	setCommand(array){
-		this.commandArray = array;
-		this.currentCommand = array[0];
+		this.generateArray.setCommand(array);
 	}
+	//setCommand(array){
+	//	this.commandArray = array;
+	//	this.currentCommand = array[0];
+	//}
 	setEnemy(idArray, posArray){
 		this.idArray = idArray;
 		this.posArray = posArray;
@@ -673,30 +714,33 @@ class enemyGenerator{
 		this.generate = false;
 	}
 	act(){
-		if(this.currentCommand !== undefined){ this.currentCommand(this); }
+		//if(this.currentCommand !== undefined){ this.currentCommand(this); }
+		this.generateArray.execute(this);
 	}
 	update(){
 		this.act();
 	}
-	shiftIndex(n){
-		this.commandIndex += n;
-		this.currentCommand = this.commandArray[this.commandIndex];
-	}
+	//shiftIndex(n){
+	//	this.commandIndex += n;
+	///	this.currentCommand = this.commandArray[this.commandIndex];
+	//}
 }
 
-function createSimpleGenerate(idArray, posArray){
-	return (g) => { g.setEnemy(idArray, posArray); g.shiftIndex(1); }
-}
-function createGenerateWait(limit){ return (g) => {
-	g.gt++;
-	if(g.gt < limit){ return; }
-	g.gt = 0; g.shiftIndex(1);
-} } // limitだけ間を置く
-function createGenerateLoop(n, limit){ return (g) => {
-	g.gLoop++;
-	if(g.gLoop < limit || limit < 0){ g.shiftIndex(-n); } // limitに-1を指定すると無限ループ
-	else{ g.gLoop = 0; g.shiftIndex(1); }
+function simpleGenerate(idArray, posArray){ return (obj, cArray) => {
+	obj.setEnemy(idArray, posArray); cArray.shiftIndex(1);
 } }
+// waitはかぶるのでカット
+//function createGenerateWait(limit){ return (g) => {
+//	g.gt++;
+//	if(g.gt < limit){ return; }
+//	g.gt = 0; g.shiftIndex(1);
+//} } // limitだけ間を置く
+// loopCommandでよいのでカット
+//function createGenerateLoop(n, limit){ return (g) => {
+//	g.gLoop++;
+//	if(g.gLoop < limit || limit < 0){ g.shiftIndex(-n); } // limitに-1を指定すると無限ループ
+//	else{ g.gLoop = 0; g.shiftIndex(1); }
+//} }
 
 // ----------------------------------------------------------------------------------- //
 // effect関連
@@ -749,4 +793,18 @@ class simpleVanish extends effect{
 		  ellipse(this.x + radius * Math.cos(angle), this.y + radius * Math.sin(angle), this.diam / 2, this.diam / 2);
 	  }
 	}
+}
+
+// ----------------------------------------------------------------------------------- //
+// utility.
+
+// すべてのあれに何か同じことをさせる汎用関数（everyUpdate, everyRender, etc）
+function every(arrayOfArray, actName){
+	arrayOfArray.forEach((array) => { array.forEach((obj) => { obj[actName](); }) })
+}
+
+// (x, y)からプレイヤーへの方向をラジアンで取得する関数
+function getPlayerDirection(x, y){
+	let p = all.currentState.player;
+	return atan2(p.y - y, p.x - x);
 }
