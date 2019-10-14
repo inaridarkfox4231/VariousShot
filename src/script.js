@@ -398,25 +398,28 @@ class player{
 // (x, y)は長方形の中心、(w, h)は辺の長さの半分。
 class mover{
 	constructor(x, y, w, h, moveArray, shotArray, r, g, b){
-		this.mt = 0; // moveArray用の制御変数
-		this.mLoop = 0; // moveArray用のループカウンタ
-		this.st = 0; // shotArray用の制御変数
-		this.sLoop = 0; // shotArray用のループカウンタ
 		this.x = x;
 		this.y = y;
 		this.vx = 0;
 		this.vy = 0;
 		this.c = {r:r, g:g, b:b};
-		//this.diam = diam;
 		this.w = w;
 		this.h = h;
+		// ここから
 		this.moveArray = moveArray;
 		this.moveIndex = 0;
 		this.currentMove = moveArray[0];
 		this.shotArray = shotArray;
 		this.shotIndex = 0;
 		this.currentShot = undefined;
+		this.mt = 0; // moveArray用の制御変数
+		this.mLoop = 0; // moveArray用のループカウンタ
+		this.st = 0; // shotArray用の制御変数
+		this.sLoop = 0; // shotArray用のループカウンタ
 		if(shotArray.length > 0){ this.currentShot = shotArray[0]; }
+		// ここまでの部分が2行になる、うまく行けば。
+		// できればそれに加えて全体の挙動に関するやつをもうひとつ追加したい。HPが0になったら死ぬ、とか。
+		// そうやるとHPが0になったときに弾を発射して死ぬとか出来る可能性がある（可能性）。
 		this.shotId = -1;
 		this.fire = false;
 		this.alive = true;
@@ -504,6 +507,30 @@ class bullet extends mover{
 
 // ----------------------------------------------------------------------------------- //
 // command関連（いずれクラス化）
+
+// 多分こんなの
+class actionArray{
+	constructor(){
+		this.seq = [];
+		this.t = 0;
+		this.loopCounter = 0;
+		this.index = 0;
+		this.currentAction = undefined;
+	}
+	shiftIndex(n){
+		this.index += n;
+		this.currentAction = this.seq[this.index];
+	}
+	inputAction(seq){
+		if(seq.length === 0){ return; }
+		this.seq = seq;
+		this.currentAction = this.seq[0];
+	}
+	execute(obj){
+		if(this.seq.length === 0){ return; }
+		this.currentAction(obj);
+	}
+}
 
 function createSetV(vx, vy){ return (m) => {m.vx = vx; m.vy = vy; m.shiftMoveIndex(1); }; }
 function straight(m){ m.x += m.vx; m.y += m.vy; }
