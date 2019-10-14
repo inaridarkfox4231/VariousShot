@@ -402,21 +402,8 @@ class mover{
 		this.c = {r:r, g:g, b:b};
 		this.w = w;
 		this.h = h;
-		// ここから
 		this.moveArray = new commandArray(moveArray);
 		this.shotArray = new commandArray(shotArray);
-		//this.moveArray = moveArray;
-		//this.moveIndex = 0;
-		//this.currentMove = moveArray[0];
-		//this.shotArray = shotArray;
-		//this.shotIndex = 0;
-		//this.currentShot = undefined;
-		//this.mt = 0; // moveArray用の制御変数
-		//this.mLoop = 0; // moveArray用のループカウンタ
-		//this.st = 0; // shotArray用の制御変数
-		//this.sLoop = 0; // shotArray用のループカウンタ
-		//if(shotArray.length > 0){ this.currentShot = shotArray[0]; }
-		// ここまでの部分が2行になる、うまく行けば。
 		// できればそれに加えて全体の挙動に関するやつをもうひとつ追加したい。HPが0になったら死ぬ、とか。
 		// そうやるとHPが0になったときに弾を発射して死ぬとか出来る可能性がある（可能性）。
 		this.shotId = -1;
@@ -451,19 +438,9 @@ class mover{
 		}
 	}
 	act(){
-		//this.currentMove(this);
-		//if(this.currentShot !== undefined){ this.currentShot(this); }
 		this.moveArray.execute(this);
 		this.shotArray.execute(this);
 	}
-	//shiftMoveIndex(n){
-	//	this.moveIndex += n;
-	//	this.currentMove = this.moveArray[this.moveIndex];
-	//}
-	//shiftShotIndex(n){
-	//	this.shotIndex += n;
-	//	this.currentShot = this.shotArray[this.shotIndex];
-	//}
 	update(){
 		this.act();
 		this.boundCheck();
@@ -487,7 +464,6 @@ class enemy extends mover{
 	hit(obj){
 		// 0か2で反応する
 		if(obj.collider.id === 0){ return; }
-		//console.log("hit444");
 		this.life -= obj.damage;
 		if(this.life > 0){ return; }
 		this.life = 0;
@@ -501,8 +477,49 @@ class bullet extends mover{
 		this.damage = damage;
 	}
 	hit(obj){
-		//console.log("hit " + this.collider.id);
 		this.alive = false;
+	}
+}
+
+// idArray = [0]なら0だけ、[0, 0]なら0が2匹で別の場所、ランダム、以下略
+// ループカウンタとかウェイトは同じように
+// enemyもいくつか用意してまとめてとかそういう感じの方がいいのかも。
+// そうすればenemy配列ひとつで済む。
+class enemyGenerator{
+  constructor(){
+		this.idArray = [];
+		this.posArray = [];
+		this.generateArray = new commandArray([]);
+		this.generate = false;
+	}
+	reset(){
+		this.idArray = [];
+		this.posArray = [];
+		this.generateArray.setCommand([]);
+		this.generate = false;
+	}
+	setCommand(array){
+		this.generateArray.setCommand(array);
+	}
+	setEnemy(idArray, posArray){
+		this.idArray = idArray;
+		this.posArray = posArray;
+		this.generate = true;
+	}
+	charge(array){
+		if(!this.generate){ return; }
+		for(let i = 0; i < this.idArray.length; i++){
+			let e = getEnemy(this.idArray[i], this.posArray[i].x, this.posArray[i].y);
+			e.collider.setId(1);
+			array.push(new simpleAppear(60, e));
+		}
+		this.generate = false;
+	}
+	act(){
+		this.generateArray.execute(this);
+	}
+	update(){
+		this.act();
 	}
 }
 
@@ -544,6 +561,9 @@ class commandArray{
 		this.currentCommand(obj, this);
 	}
 }
+
+// ----------------------------------------------------------------------------------- //
+// command一覧
 
 // 以下、大幅に書き直し。mのところはobj, あとcArray(いずれcommandArrayにする)にしないと。
 // メソッド名もいじる。createは長いし意味がないので削る。
@@ -597,28 +617,32 @@ function setShot(id){ return (obj, cArray) => {
 	cArray.shiftIndex(1);
 } } // ショット設定
 
-// これはwaitでよいのでカット
-//function createShotWait(limit){ return (m) => {
-//	m.st++;
-//	if(m.st < limit){ return; }
-//	m.st = 0; m.shiftShotIndex(1);
-//} } // limitだけ間を置く
+function simpleGenerate(idArray, posArray){ return (obj, cArray) => {
+	obj.setEnemy(idArray, posArray); cArray.shiftIndex(1);
+} }
 
-// これはshiftLoopでよいのでカット
-//unction createShotLoop(n, limit){ return (m) => {
-//	m.sLoop++;
-//	if(m.sLoop < limit || limit < 0){ m.shiftShotIndex(-n); } // limitに-1を指定すると無限ループ
-//	else{ m.sLoop = 0; m.shiftShotIndex(1); }
-//} }
+// てきをつくる
+// 1:上半分から5匹
+// 間隔
+// 2:下半分から5匹
+// 間隔
+// 縦に3匹並んで出現が高さランダムで5回
+// 間隔
+// 以上、攻撃はすべて一定間隔で自機誘導弾
+// 上と下で1匹ずつゆっくり出てきてこっちに扇状に5回ずつ弾を放つ、からの中心経由でクロスするように消える
+// 間隔
+// 上と下から5匹ずつ出てきてカーブして直進しつつ左に消える感じ
+// 間隔
+
+// ----------------------------------------------------------------------------------- //
+// 敵とか弾丸についての関数
 
 // 以下はshotパラメータをいじるための関数
 function getEnemy(id, x, y){
 	// idによって異なるenemyを作るうえでのデータを返す感じ
 	switch(id){
 		case 0:
-			//let mArray = [createSetV(-2, 0), straight];
 			let mArray = [setV(-2, 0), straight];
-			//let sArray = [createSetShot(32), createShotWait(30), createShotLoop(2, 5)];
 			let sArray = [setShot(32), wait(30), warpLoop(0, 5)]
 			return new enemy(x, y, 10, 10, mArray, sArray, 255, 201, 14, 15); // lifeは15.
 	}
@@ -638,7 +662,6 @@ function getBullet(_obj){
 }
 
 function getStraight(_obj){
-	//let mArray = [createSetV(8, 0), straight];
 	let mArray = [setV(8, 0), straight];
 	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
 }
@@ -647,100 +670,9 @@ function toPlayer(_obj){
 	let dir = getPlayerDirection(_obj.x, _obj.y);
 	let vx = 3 * Math.cos(dir);
 	let vy = 3 * Math.sin(dir);
-	//let mArray = [createSetV(vx, vy), straight];
 	let mArray = [setV(vx, vy), straight];
 	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
 }
-
-// てきをつくる
-// 1:上半分から5匹
-// 間隔
-// 2:下半分から5匹
-// 間隔
-// 縦に3匹並んで出現が高さランダムで5回
-// 間隔
-// 以上、攻撃はすべて一定間隔で自機誘導弾
-// 上と下で1匹ずつゆっくり出てきてこっちに扇状に5回ずつ弾を放つ、からの中心経由でクロスするように消える
-// 間隔
-// 上と下から5匹ずつ出てきてカーブして直進しつつ左に消える感じ
-// 間隔
-
-// idArray = [0]なら0だけ、[0, 0]なら0が2匹で別の場所、ランダム、以下略
-// ループカウンタとかウェイトは同じように
-// enemyもいくつか用意してまとめてとかそういう感じの方がいいのかも。
-// そうすればenemy配列ひとつで済む。
-class enemyGenerator{
-  constructor(){
-		//this.gt = 0; // 制御変数・・この辺はクラスにする？commandで統一できそう。
-		//this.gLoop = 0; // ループカウンタ
-		this.idArray = [];
-		this.posArray = [];
-		//this.commandArray = [];
-		//this.commandIndex = 0;
-		//this.currentCommand = undefined;
-		this.generateArray = new commandArray([]);
-		this.generate = false;
-	}
-	reset(){
-		//this.gt = 0;
-		//this.gLoop = 0;
-		this.idArray = [];
-		this.posArray = [];
-		//this.commandArray = [];
-		//this.commandIndex = 0;
-		//this.currentCommand = undefined;
-		this.generateArray.setCommand([]);
-		this.generate = false;
-	}
-	setCommand(array){
-		this.generateArray.setCommand(array);
-	}
-	//setCommand(array){
-	//	this.commandArray = array;
-	//	this.currentCommand = array[0];
-	//}
-	setEnemy(idArray, posArray){
-		this.idArray = idArray;
-		this.posArray = posArray;
-		this.generate = true;
-	}
-	charge(array){
-		if(!this.generate){ return; }
-		for(let i = 0; i < this.idArray.length; i++){
-			let e = getEnemy(this.idArray[i], this.posArray[i].x, this.posArray[i].y);
-			e.collider.setId(1);
-			array.push(new simpleAppear(60, e));
-		}
-		this.generate = false;
-	}
-	act(){
-		//if(this.currentCommand !== undefined){ this.currentCommand(this); }
-		this.generateArray.execute(this);
-	}
-	update(){
-		this.act();
-	}
-	//shiftIndex(n){
-	//	this.commandIndex += n;
-	///	this.currentCommand = this.commandArray[this.commandIndex];
-	//}
-}
-
-function simpleGenerate(idArray, posArray){ return (obj, cArray) => {
-	obj.setEnemy(idArray, posArray); cArray.shiftIndex(1);
-} }
-// waitはかぶるのでカット
-//function createGenerateWait(limit){ return (g) => {
-//	g.gt++;
-//	if(g.gt < limit){ return; }
-//	g.gt = 0; g.shiftIndex(1);
-//} } // limitだけ間を置く
-// loopCommandでよいのでカット
-//function createGenerateLoop(n, limit){ return (g) => {
-//	g.gLoop++;
-//	if(g.gLoop < limit || limit < 0){ g.shiftIndex(-n); } // limitに-1を指定すると無限ループ
-//	else{ g.gLoop = 0; g.shiftIndex(1); }
-//} }
 
 // ----------------------------------------------------------------------------------- //
 // effect関連
