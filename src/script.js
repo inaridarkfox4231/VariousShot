@@ -7,9 +7,17 @@
 let all;
 let mX = 0;
 let mY = 0;
-const bodyColor = [[0, 0, 0], [28, 147, 64]];
-const spanArray = [5, 8]; // span関係ないところは-1で補間
+const bodyColor = [[0, 0, 0], [28, 147, 64], [237, 28, 36]];
+const spanArray = [5, 8, 10]; // span関係ないところは-1で補間
 let doubleClickFlag = false;
+
+// 時間表示の設置。
+/*
+const timeCounter = document.createElement('div');
+document.body.appendChild(timeCounter);
+const collisionCounter = document.createElement('div');
+document.body.appendChild(collisionCounter);
+*/
 
 function setup(){
 	createCanvas(640, 480);
@@ -18,8 +26,12 @@ function setup(){
 }
 
 function draw(){
+  //const start = performance.now(); // 時間表示。
 	all.update();
 	all.render();
+	//const end = performance.now();
+  //const timeStr = (end - start).toPrecision(4);
+  //timeCounter.innerText = `${timeStr}ms`;
 }
 
 function mouseClicked(){
@@ -150,6 +162,8 @@ class play extends state{
     // ゆくゆくはjsonに落とすつもり
 		let array = [wait(120), simpleGenerate([0], [{x:600, y:100}]), wait(40), shiftLoop(2, 5)];
 		array.push(...[wait(120), simpleGenerate([0], [{x:600, y:380}]), wait(40), shiftLoop(2, 5)]);
+		array.push(...[wait(120), simpleGenerate([1, 1, 1, 1, 1], [{x:600, y:100}, {x:500, y:170}, {x:600, y:240}, {x:500, y:310}, {x:600, y:380}])]);
+		array.push(...[wait(600), simpleGenerate([2, 2], [{x:560, y:120}, {x:560, y:360}])]);
 		this.generator.setCommand(array);
 	}
 	update(_master){
@@ -301,10 +315,6 @@ class play extends state{
 			let b = this.bulletArray[i];
 			if(!b.active){ this.bulletArray.splice(i, 1); }
 		}
-		//for(let i = 0; i < this.enemyBulletArray.length; i++){
-		//	let b = this.enemyBulletArray[i];
-		//	if(!b.active){ this.enemyBulletArray.splice(i, 1); }
-		//}
 		for(let i = 0; i < this.effectArray.length; i++){
 			let ef = this.effectArray[i];
 			if(ef.finished){
@@ -581,7 +591,7 @@ class player{
 		this.active = true;
 		this.speed = speed;
 		this.shotId = 0;
-		this.maxShotId = 2;
+		this.maxShotId = 3;
 		this.bulletCase = [];
 		this.span = 0; // 射出間隔
 		this.blink = 60; // ブリンク(正の時無敵）
@@ -610,9 +620,6 @@ class player{
 	charge(array){
 		// arrayにbulletをぶちこむ（複数の場合あり）
 		if(!mouseIsPressed || this.span > 0){ return; }
-		//let b = getBullet(this);
-		//b.forEach((eachB) => {eachB.collider.setId(2);})
-		//array.push(...b);
 		chargeBullet(this.shotId, this);
 		array.push(...this.bulletCase);
 		this.bulletCase = [];
@@ -682,8 +689,6 @@ class mover{
 		// そうやるとHPが0になったときに弾を発射して死ぬとか出来る可能性がある（可能性）。
 		this.bulletCase = []; // ここにbulletを放り込んでmasterの方でactiveなものを取りだす流れ。
 		// つまりchargeの部分を大幅に書き換える。
-		//this.shotId = -1;
-		//this.fire = false;
 		this.active = true;
 		this.collider = new rectCollider(-1, x, y, w, h);
 	}
@@ -698,17 +703,7 @@ class mover{
 			array.push(b);
 			this.bulletCase.splice(i, 1);
 		}
-		// chargeはやられてから排除されるまでに実行されるからやられる時にbulletを放り込む形でも・・んー。
-    //if(!this.fire){ return; }
-		//let b = getBullet(this);
-		//b.forEach((eachB) => { eachB.collider.setId(3); })
-		//array.push(...b);
-		//this.fire = false;
 	}
-	//setShot(newShotId){
-	//	this.shotId = newShotId;
-	//	this.fire = true;
-	//}
 	rotateDirection(degree){
 		let angle = degree * Math.PI / 180;
 		let _vx = this.vx;
@@ -865,10 +860,34 @@ function setHoming(v){ return (obj, cArray) => {
 	obj.vy = v * Math.sin(direction);
 	cArray.shiftIndex(1);
 } }
+// (x, y)に向かってぎゅーーん
+function setAbsHoming(v, x, y){ return (obj, cArray) => {
+	let direction = atan2(y - obj.y, x - obj.x);
+	obj.vx = v * Math.cos(direction);
+	obj.vy = v * Math.sin(direction);
+	cArray.shiftIndex(1);
+} }
 function straight(obj, cArray){ obj.x += obj.vx; obj.y += obj.vy; }
+function accellSum(ax, ay){ return (obj) => {
+	obj.vx += ax;
+	obj.vy += ay;
+	obj.x += obj.vx;
+	obj.y += obj.vy;
+} }
+function accellMulti(ratio){ return (obj) => {
+	obj.vx *= ratio;
+	obj.vy *= ratio;
+	obj.x += obj.vx;
+	obj.y += obj.vy;
+} }
 function straightWithLineBound(a, b, c){ return (obj, cArray) => {
 	obj.x += obj.vx; obj.y += obj.vy;
 	if(a * obj.x + b * obj.y < c){ return; }
+	cArray.shiftIndex(1);
+} }
+function straightWithCircleBound(x, y, r){ return (obj, cArray) => {
+	obj.x += obj.vx; obj.y += obj.vy;
+	if(dist(x, y, obj.x, obj.y) < r){ return; }
 	cArray.shiftIndex(1);
 } }
 function rot(degree){ return (obj, cArray) => {
@@ -889,6 +908,15 @@ function jump(n){ return (obj, cArray) => { cArray.shiftIndex(n); } }
 function back(n){ return (obj, cArray) => { cArray.shiftIndex(-n); } }
 function warp(n){ return (obj, cArray) => { cArray.setIndex(n); } }
 function randomWarp(nArray){ return (obj, cArray) => { cArray.setIndex(random(nArray)); } }
+
+// mArrayからsArrayを操作する
+function sArrayShift(n){ return (obj, cArray) => {
+	obj.shotArray.shiftIndex(n);
+	cArray.shiftIndex(1);
+} }
+
+// 消滅
+function bekilled(obj, cArray){ obj.inActivate(); }
 
 // n個戻すか、先に進めるか。たとえばlimit===2なら2周する感じ。
 function shiftLoop(n, limit){ return (obj, cArray) => {
@@ -912,13 +940,13 @@ function wait(span){ return (obj, cArray) => {
 
 // 敵専用の弾丸チャージメソッド
 // 1個だけ放り込む。
-function setSingle(id){ return (obj, cArray) => {
-	chargeBullet(id, obj);
+function setSingle(id, info = {}){ return (obj, cArray) => {
+	chargeBullet(id, obj, info);
 	cArray.shiftIndex(1);
 } }
 // いくつも同じものを放り込む。
-function setMulti(id, n){ return (obj, cArray) => {
-	for(let i = 0; i < n; i++){ chargeBullet(id, obj); }
+function setMulti(id, n, info = []){ return (obj, cArray) => {
+	for(let i = 0; i < n; i++){ chargeBullet(id, obj, info); }
 	cArray.shiftIndex(1);
 } }
 
@@ -936,6 +964,14 @@ function fire(index, n){ return (obj, cArray) => {
 	}
 	cArray.shiftIndex(1);
 } }
+
+// 全部！
+function fireAll(obj){
+	obj.bulletCase.forEach((b) => {
+		b.setPos(obj.x, obj.y);
+		b.activate();
+	})
+}
 
 // てきをつくる
 // 1:上半分から5匹
@@ -959,6 +995,10 @@ function getEnemy(id, x, y){
 	switch(id){
 		case 0:
 		  return en0(x, y);
+		case 1:
+		  return en1(x, y);
+		case 2:
+		  return en2(x, y);
 	}
 }
 
@@ -971,57 +1011,92 @@ function en0(x, y){
 // en1, en2, ...作っていく。killedAction = () => {}みたいにすることで
 // やられたときにガーン！とかできる。一旦bulletCase = []としてからチャージする感じ。
 
+// lifeは25. 左に直進してからそのまま逆方向に戻っていく。行くときも帰るときも自機誘導連続10発。
+function en1(x, y){
+	let mArray = [setV(-2, 0), straightWithLineBound(-1, 0, -50), sArrayShift(-4), setV(4, 0), straight];
+	let sArray = [setMulti(128, 10), fire(0, 1), wait(10), shiftLoop(2, 10)];
+	return new enemy(x, y, 10, 10, mArray, sArray, 255, 127, 39, 25);
+}
+
+// lifeは40. その場で自機方向含めて扇状に13発(±60°で10°おき)発射を5回したのち、画面中央を通り越して消滅。
+function en2(x, y){
+  let mArray = [wait(150), setAbsHoming(6, width / 2, height / 2), accellMulti(1.05)];
+	let sArray = [setMulti(129, 5, {bound:6}), fire(0, 13), wait(20), shiftLoop(2, 5)];
+	return new enemy(x, y, 20, 20, mArray, sArray, 0, 162, 232, 40);
+}
+
 // ほんとはparamで{id:id, ...}とかしたいけれど。
-function chargeBullet(id, obj){
+function chargeBullet(id, obj, info = {}){
 	// idによって異なるbulletを作るうえでのデータを返す感じ
 	switch(id){
 		case 0:
 			// 直進
-			bl0(obj);
-			break;
+			bl0(obj, info); break;
 		case 1:
-		  bl1(obj);
-			break;
+		  bl1(obj, info); break;
+		case 2:
+		  bl2(obj, info); break;
 		case 128:
 			// 自機誘導
-			bl128(obj);
-			break;
+			bl128(obj, info); break;
+		case 129:
+		  // 円形スプレッド
+			bl129(obj, info); break;
 	}
 }
 
 // bl0, bl1, ..., bl128, bl129, ...作っていく。
 
 // 敵の弾は自動制御だからinActivateするけどこっちが撃つ弾はその必要はないので。
+// infoにレベルを入れる？それも面白そう。
 // 直進弾。
-function bl0(obj){
+function bl0(obj, info){
 	let mArray = [setV(8, 0), straight];
 	let b = new bullet(obj.x, obj.y, 6, 4, mArray, [], 0, 0, 0, 5); // ダメージは5.
 	b.collider.setId(2);
 	obj.bulletCase.push(b);
-	//return [new bullet(obj.x, obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
 }
 // 5Wayとか、前後に発射とか、前後上下に発射とか面白そう。
 
 // 5Way弾
-function bl1(obj){
+function bl1(obj, info){
 	for(let degree = -30; degree <= 30; degree += 15){
 		let mArray = [setPoleV(6, degree), straightWithLineBound(1, 0, obj.x + 100), setV(6, 0), straight];
-		let b = new bullet(obj.x, obj.y, 6, 4, mArray, [], 28, 147, 64, 3) // ダメージは3
+		let b = new bullet(obj.x, obj.y, 6, 4, mArray, [], 28, 147, 64, 3); // ダメージは3.
+		b.collider.setId(2);
+		obj.bulletCase.push(b);
+	}
+}
+
+// 射程短いけどでかくて強いやつ
+function bl2(obj, info){
+	for(let degree = -30; degree <= 30; degree += 30){
+		let mArray = [setPoleV(8, degree), straightWithCircleBound(obj.x, obj.y, 150), bekilled];
+		let b = new bullet(obj.x, obj.y, 8, 6, mArray, [], 237, 28, 36, 10); // ダメージは10.
 		b.collider.setId(2);
 		obj.bulletCase.push(b);
 	}
 }
 
 // 自機誘導弾。
-function bl128(obj){
+function bl128(obj, info){
 	let mArray = [setHoming(5), straight];
-	let b = new bullet(0, 0, 4, 4, mArray, [], 163, 73, 164, 5);
+	let b = new bullet(0, 0, 4, 4, mArray, [], 155, 120, 0, 5);
 	b.collider.setId(3);
 	b.inActivate();
 	obj.bulletCase.push(b); // ダメージは5.
-	//return [new bullet(obj.x, obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
 }
 // 自機の方向に向かって扇状に・・発射時に変位（角度回転）をずらす感じ。
+function bl129(obj, info){
+	let bound = info.bound; // たとえば6なら全部で6 * 2 + 1の13発。
+	for(let diff = -bound * 10; diff <= bound * 10; diff += 10){
+		let mArray = [setHoming(5), rot(diff), straight];
+		let b = new bullet(0, 0, 4, 4, mArray, [], 255, 201, 14, 5);
+		b.collider.setId(3);
+		b.inActivate();
+		obj.bulletCase.push(b); // ダメージは5.
+	}
+}
 
 // ----------------------------------------------------------------------------------- //
 // effect関連
@@ -1044,18 +1119,18 @@ class simpleAppear extends effect{
 		super(span);
 		this.typeName = "appear";
 		this.enemy = enemy;
+		this.x = enemy.x;
+		this.y = enemy.y;
+		this.w = enemy.w;
+		this.h = enemy.h;
+		this.c = enemy.c;
 	}
 	render(){
-		let x = this.enemy.x;
-		let y = this.enemy.y;
-		let c = this.enemy.c;
-		let w = this.enemy.w;
-		let h = this.enemy.h;
-		fill(c.r, c.g, c.b, 255 * this.count / this.span); // 30くらいを想定
+		fill(this.c.r, this.c.g, this.c.b, 255 * this.count / this.span); // 30くらいを想定
 		for(let i = 0; i < 4; i++){
 			let angle = Math.PI * 2 * ((12 * i + this.count) / 48);
-			let r = (w + h) * (this.span - this.count) / this.span;
-			rect(x + r * Math.cos(angle) - w, y + r * Math.sin(angle) - h, w * 2, h * 2);
+			let r = (this.w + this.h) * (this.span - this.count) / this.span;
+			rect(this.x + r * Math.cos(angle) - this.w, this.y + r * Math.sin(angle) - this.h, this.w * 2, this.h * 2);
 		}
 	}
 }
