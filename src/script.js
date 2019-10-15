@@ -162,8 +162,17 @@ class play extends state{
     // ゆくゆくはjsonに落とすつもり
 		let array = [wait(120), simpleGenerate([0], [{x:600, y:100}]), wait(40), shiftLoop(2, 5)];
 		array.push(...[wait(120), simpleGenerate([0], [{x:600, y:380}]), wait(40), shiftLoop(2, 5)]);
-		array.push(...[wait(120), simpleGenerate([1, 1, 1, 1, 1], [{x:600, y:100}, {x:500, y:170}, {x:600, y:240}, {x:500, y:310}, {x:600, y:380}])]);
+		array.push(...[wait(120), simpleGenerate(
+			[1, 1, 1, 1, 1], [{x:600, y:100}, {x:500, y:170}, {x:600, y:240}, {x:500, y:310}, {x:600, y:380}]
+		)]);
 		array.push(...[wait(600), simpleGenerate([2, 2], [{x:560, y:120}, {x:560, y:360}])]);
+		array.push(...[wait(360), simpleGenerate(
+			[0, 1, 1, 0], [{x:560, y:100}, {x:460, y:180}, {x:460, y:300}, {x:560, y:380}]
+		), wait(240)]);
+		for(let i = 0; i < 10; i++){
+			array.push(...[simpleGenerate([0], [{x:560 + random(40), y:60 + random(120)}])]);
+			array.push(...[simpleGenerate([0], [{x:560 + random(40), y:420 - random(120)}]), wait(60)]);
+		}
 		this.generator.setCommand(array);
 	}
 	update(_master){
@@ -1024,6 +1033,9 @@ function en2(x, y){
 	let sArray = [setMulti(129, 5, {bound:6}), fire(0, 13), wait(20), shiftLoop(2, 5)];
 	return new enemy(x, y, 20, 20, mArray, sArray, 0, 162, 232, 40);
 }
+
+// バックインで入って誘導弾をばらまきつつぎゅーんとフェードアウト
+// 何匹も連続して現れると面白いかも
 
 // ほんとはparamで{id:id, ...}とかしたいけれど。
 function chargeBullet(id, obj, info = {}){
