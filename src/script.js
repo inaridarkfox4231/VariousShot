@@ -128,8 +128,7 @@ class play extends state{
 		super();
 		this.player = new player(50, 320, 5, 100);
 		this.enemyArray = []; // aliveでないものを排除
-		this.playerBulletArray = [];
-		this.enemyBulletArray = [];
+		this.bulletArray = [];
 		this.effectArray = [];
 		this.generator = new enemyGenerator();
 		this.lv = -1;
@@ -140,8 +139,7 @@ class play extends state{
 	reset(){
 		this.player.initialize(50, 320, 5, 100);
 		this.enemyArray = [];
-		this.playerBulletArray = [];
-		this.enemyBulletArray = [];
+		this.bulletArray = [];
 		this.effectArray = [];
 		this.interval = 120;
 		this.generator.reset();
@@ -160,49 +158,14 @@ class play extends state{
 			_master.shiftIndex(-1);
 			flagReset();
 		}
-		every([[this.generator, this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.effectArray], "update");
+		every([[this.generator, this.player], this.enemyArray, this.bulletArray, this.effectArray], "update");
 		this.collisionCheck();
 		this.charge();
 		this.eject();
-	}/*
-	collisionCheck(){
-		// playerとenemy
-	  for(let i = 0; i < this.enemyArray.length; i++){
-			let e = this.enemyArray[i];
-			if(!e.alive){ continue; }
-			//if(collideObjects(this.player.collider, e.collider)){ this.player.hit(e); e.hit(this.player); }
-			if(this._detector.detectCollision(this.player.collider, e.collider)){
-				this.player.hit(e);
-				e.hit(this.player);
-			}
-		}
-		// playerBulletとenemy
-    for(let k = 0; k < this.playerBulletArray.length; k++){
-			let b = this.playerBulletArray[k];
-			if(!b.alive){ continue; }
-			for(let i = 0; i < this.enemyArray.length; i++){
-				let e = this.enemyArray[i];
-				if(!e.alive){ continue; }
-			if(this._detector.detectCollision(b.collider, e.collider)){
-					b.hit(e);
-					e.hit(b);
-				}
-			}
-		}
-		// enemyBulletとplayer
-		for(let h = 0; h < this.enemyBulletArray.length; h++){
-			let b = this.enemyBulletArray[h];
-			if(!b.alive){ continue; }
-			if(this._detector.detectCollision(this.player.collider, b.collider)){
-				this.player.hit(b);
-				b.hit(this.player);
-			}
-		}
-		// いずれ線型4分木（quadTree）で書き直す
-	}*/
+	}
 	collisionCheck(){
 		this._qTree.clear(); // 四分木のクリア
-		this._qTree.addActors([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray]);
+		this._qTree.addActors([[this.player], this.enemyArray, this.bulletArray]);
 		this._hitTest();
 	}
 	_hitTest(currentIndex = 0, objList = []){
@@ -313,18 +276,18 @@ class play extends state{
 		fill(0);
 		textSize(40);
 		text("level " + this.lv + ", playerLife " + this.player.life, 100, 100);
-		text("bullet " + (this.enemyBulletArray.length + this.playerBulletArray.length), 100, 200);
+		text("bullet " + (this.bulletArray.length), 100, 200);
 		fill(255, 0, 0);
 		rect(0, 0, 40, 40);
-		every([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.effectArray], "render");
+		every([[this.player], this.enemyArray, this.bulletArray, this.effectArray], "render");
 	}
 	charge(){
 		this.generator.charge(this.effectArray); // ここでエフェクトも同時に発生させてエフェクトが終わり次第・・みたいな。
 		// エフェクトにenemyを持たせて排除するときにenemyを出させるとか。
 		// つまりenemyをチャージする代わりにenemy持ちのエフェクトをチャージする。
 		// プレイヤーについてはやられたらエフェクト、でいいよ。
-		this.player.charge(this.playerBulletArray);
-		this.enemyArray.forEach((e) => { e.charge(this.enemyBulletArray); })
+		this.player.charge(this.bulletArray);
+		this.enemyArray.forEach((e) => { e.charge(this.bulletArray); })
 	}
 	eject(){
 		for(let i = 0; i < this.enemyArray.length; i++){
@@ -334,14 +297,14 @@ class play extends state{
 				this.enemyArray.splice(i, 1);
 			}
 		}
-		for(let i = 0; i < this.playerBulletArray.length; i++){
-			let b = this.playerBulletArray[i];
-			if(!b.alive){ this.playerBulletArray.splice(i, 1); }
+		for(let i = 0; i < this.bulletArray.length; i++){
+			let b = this.bulletArray[i];
+			if(!b.alive){ this.bulletArray.splice(i, 1); }
 		}
-		for(let i = 0; i < this.enemyBulletArray.length; i++){
-			let b = this.enemyBulletArray[i];
-			if(!b.alive){ this.enemyBulletArray.splice(i, 1); }
-		}
+		//for(let i = 0; i < this.enemyBulletArray.length; i++){
+		//	let b = this.enemyBulletArray[i];
+		//	if(!b.alive){ this.enemyBulletArray.splice(i, 1); }
+		//}
 		for(let i = 0; i < this.effectArray.length; i++){
 			let ef = this.effectArray[i];
 			if(ef.finished){
