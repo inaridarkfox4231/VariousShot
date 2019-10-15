@@ -995,7 +995,7 @@ function chargeBullet(id, obj){
 // 直進弾。
 function bl0(obj){
 	let mArray = [setV(8, 0), straight];
-	let b = new bullet(obj.x, obj.y, 4, 4, mArray, [], 0, 0, 0, 5); // ダメージは5.
+	let b = new bullet(obj.x, obj.y, 6, 4, mArray, [], 0, 0, 0, 5); // ダメージは5.
 	b.collider.setId(2);
 	obj.bulletCase.push(b);
 	//return [new bullet(obj.x, obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
@@ -1006,7 +1006,7 @@ function bl0(obj){
 function bl1(obj){
 	for(let degree = -30; degree <= 30; degree += 15){
 		let mArray = [setPoleV(6, degree), straightWithLineBound(1, 0, obj.x + 100), setV(6, 0), straight];
-		let b = new bullet(obj.x, obj.y, 6, 6, mArray, [], 28, 147, 64, 3) // ダメージは3
+		let b = new bullet(obj.x, obj.y, 6, 4, mArray, [], 28, 147, 64, 3) // ダメージは3
 		b.collider.setId(2);
 		obj.bulletCase.push(b);
 	}
@@ -1021,6 +1021,7 @@ function bl128(obj){
 	obj.bulletCase.push(b); // ダメージは5.
 	//return [new bullet(obj.x, obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
 }
+// 自機の方向に向かって扇状に・・発射時に変位（角度回転）をずらす感じ。
 
 // ----------------------------------------------------------------------------------- //
 // effect関連
