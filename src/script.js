@@ -7,8 +7,8 @@
 let all;
 let mX = 0;
 let mY = 0;
-const bodyColor = [[0, 0, 0], [27, 139, 61]];
-const spanArray = [5, 10]; // span関係ないところは-1で補間
+const bodyColor = [[0, 0, 0], [28, 147, 64]];
+const spanArray = [5, 8]; // span関係ないところは-1で補間
 let doubleClickFlag = false;
 
 function setup(){
@@ -581,7 +581,8 @@ class player{
 		this.active = true;
 		this.speed = speed;
 		this.shotId = 0;
-		this.maxShotId = 1;
+		this.maxShotId = 2;
+		this.bulletCase = [];
 		this.span = 0; // 射出間隔
 		this.blink = 60; // ブリンク(正の時無敵）
 		//this.collider = new circleCollider(0, x, y, 5);
@@ -595,7 +596,8 @@ class player{
 		this.maxLife = life;
 		this.active = true;
 		this.shotId = 0;
-		this.maxShotId = 1;
+		this.maxShotId = 2;
+		this.bulletCase = [];
 		this.span = 0;
 		this.c = {r:0, g:0, b:0};
 		this.blink = 60;
@@ -608,9 +610,12 @@ class player{
 	charge(array){
 		// arrayにbulletをぶちこむ（複数の場合あり）
 		if(!mouseIsPressed || this.span > 0){ return; }
-		let b = getBullet(this);
-		b.forEach((eachB) => {eachB.collider.setId(2);})
-		array.push(...b);
+		//let b = getBullet(this);
+		//b.forEach((eachB) => {eachB.collider.setId(2);})
+		//array.push(...b);
+		chargeBullet(this.shotId, this);
+		array.push(...this.bulletCase);
+		this.bulletCase = [];
 		this.span = spanArray[this.shotId];
 	}
 	move(){
@@ -675,31 +680,41 @@ class mover{
 		this.shotArray = new commandArray(shotArray);
 		// できればそれに加えて全体の挙動に関するやつをもうひとつ追加したい。HPが0になったら死ぬ、とか。
 		// そうやるとHPが0になったときに弾を発射して死ぬとか出来る可能性がある（可能性）。
-		this.shotId = -1;
-		this.fire = false;
+		this.bulletCase = []; // ここにbulletを放り込んでmasterの方でactiveなものを取りだす流れ。
+		// つまりchargeの部分を大幅に書き換える。
+		//this.shotId = -1;
+		//this.fire = false;
 		this.active = true;
 		this.collider = new rectCollider(-1, x, y, w, h);
 	}
+  inActivate(){ this.active = false; }
+	activate(){ this.active = true; }
+	setPos(x, y){ this.x = x; this.y = y; }
 	charge(array){
-    if(!this.fire){ return; }
-		let b = getBullet(this);
-		b.forEach((eachB) => { eachB.collider.setId(3); })
-		array.push(...b);
-		this.fire = false;
+		// fireとかどうでもいい。activeなものを取りだして放り込む。取り出したら排除。
+		for(let i = 0; i < this.bulletCase.length; i++){
+			let b = this.bulletCase[i];
+			if(!b.active){ continue; }
+			array.push(b);
+			this.bulletCase.splice(i, 1);
+		}
+		// chargeはやられてから排除されるまでに実行されるからやられる時にbulletを放り込む形でも・・んー。
+    //if(!this.fire){ return; }
+		//let b = getBullet(this);
+		//b.forEach((eachB) => { eachB.collider.setId(3); })
+		//array.push(...b);
+		//this.fire = false;
 	}
-	setShot(newShotId){
-		this.shotId = newShotId;
-		this.fire = true;
-	}
+	//setShot(newShotId){
+	//	this.shotId = newShotId;
+	//	this.fire = true;
+	//}
 	rotateDirection(degree){
 		let angle = degree * Math.PI / 180;
 		let _vx = this.vx;
 		let _vy = this.vy;
 		this.vx = _vx * Math.cos(angle) - _vy * Math.sin(angle);
 		this.vy = _vy * Math.cos(angle) + _vx * Math.sin(angle);
-	}
-	killedAction(){
-		this.active = false;
 	}
 	boundCheck(){
 		if(this.x < this.w || this.x > width - this.w || this.y < this.h || this.y > height - this.h){
@@ -737,7 +752,7 @@ class enemy extends mover{
 		this.life -= obj.damage;
 		if(this.life > 0){ return; }
 		this.life = 0;
-		this.killedAction();
+		this.inActivate();
 	}
 }
 
@@ -747,7 +762,7 @@ class bullet extends mover{
 		this.damage = damage;
 	}
 	hit(obj){
-		this.killedAction();
+		this.inActivate();
 	}
 }
 
@@ -838,7 +853,18 @@ class commandArray{
 // 以下、大幅に書き直し。mのところはobj, あとcArray(いずれcommandArrayにする)にしないと。
 // メソッド名もいじる。createは長いし意味がないので削る。
 
-function setV(vx, vy){ return (obj, cArray) => {obj.vx = vx; obj.vy = vy; cArray.shiftIndex(1); }; }
+function setV(vx, vy){ return (obj, cArray) => {obj.vx = vx; obj.vy = vy; cArray.shiftIndex(1); } }
+function setPoleV(v, degree){ return (obj, cArray) => {
+	obj.vx = v * Math.cos(degree * Math.PI / 180);
+	obj.vy = v * Math.sin(degree * Math.PI / 180);
+	cArray.shiftIndex(1);
+} }
+function setHoming(v){ return (obj, cArray) => {
+	let direction = getPlayerDirection(obj.x, obj.y);
+	obj.vx = v * Math.cos(direction);
+	obj.vy = v * Math.sin(direction);
+	cArray.shiftIndex(1);
+} }
 function straight(obj, cArray){ obj.x += obj.vx; obj.y += obj.vy; }
 function straightWithLineBound(a, b, c){ return (obj, cArray) => {
 	obj.x += obj.vx; obj.y += obj.vy;
@@ -877,18 +903,38 @@ function warpLoop(n, limit){ return (obj, cArray) => {
 	else{ cArray.loopCounter = 0; cArray.shiftIndex(1);}
 } }
 
-function wait(limit){ return (obj, cArray) => {
+// spanの方がいいよ。spanだけ何もしない
+function wait(span){ return (obj, cArray) => {
 	cArray.t++;
-	if(cArray.t < limit){ return; }
+	if(cArray.t < span){ return; }
 	cArray.t = 0; cArray.shiftIndex(1);
-} } // limitだけ間を置く
-function setShot(id){ return (obj, cArray) => {
-	obj.setShot(id);
+} }
+
+// 敵専用の弾丸チャージメソッド
+// 1個だけ放り込む。
+function setSingle(id){ return (obj, cArray) => {
+	chargeBullet(id, obj);
 	cArray.shiftIndex(1);
-} } // ショット設定
+} }
+// いくつも同じものを放り込む。
+function setMulti(id, n){ return (obj, cArray) => {
+	for(let i = 0; i < n; i++){ chargeBullet(id, obj); }
+	cArray.shiftIndex(1);
+} }
 
 function simpleGenerate(idArray, posArray){ return (obj, cArray) => {
 	obj.setEnemy(idArray, posArray); cArray.shiftIndex(1);
+} }
+
+// 敵専用の弾丸点火メソッド
+// indexから始めてn個をactivateする
+function fire(index, n){ return (obj, cArray) => {
+	for(let i = index; i < index + n; i++){
+		let b = obj.bulletCase[i];
+		b.setPos(obj.x, obj.y);
+		b.activate();
+	}
+	cArray.shiftIndex(1);
 } }
 
 // てきをつくる
@@ -912,36 +958,68 @@ function getEnemy(id, x, y){
 	// idによって異なるenemyを作るうえでのデータを返す感じ
 	switch(id){
 		case 0:
-			let mArray = [setV(-2, 0), straight];
-			let sArray = [setShot(32), wait(30), warpLoop(0, 5)]
-			return new enemy(x, y, 10, 10, mArray, sArray, 255, 201, 14, 15); // lifeは15.
+		  return en0(x, y);
 	}
 }
 
-function getBullet(_obj){
+// lifeは15. 左に直進しながら自機誘導を連続8発。おわり。
+function en0(x, y){
+	let mArray = [setV(-2, 0), straight];
+	let sArray = [setMulti(128, 8), fire(0, 1), wait(10), shiftLoop(2, 8)]
+	return new enemy(x, y, 10, 10, mArray, sArray, 255, 201, 14, 15);
+}
+// en1, en2, ...作っていく。killedAction = () => {}みたいにすることで
+// やられたときにガーン！とかできる。一旦bulletCase = []としてからチャージする感じ。
+
+// ほんとはparamで{id:id, ...}とかしたいけれど。
+function chargeBullet(id, obj){
 	// idによって異なるbulletを作るうえでのデータを返す感じ
-	let id = _obj.shotId;
 	switch(id){
 		case 0:
 			// 直進
-			return getStraight(_obj);
-		case 32:
+			bl0(obj);
+			break;
+		case 1:
+		  bl1(obj);
+			break;
+		case 128:
 			// 自機誘導
-			return toPlayer(_obj);
+			bl128(obj);
+			break;
 	}
 }
 
-function getStraight(_obj){
+// bl0, bl1, ..., bl128, bl129, ...作っていく。
+
+// 敵の弾は自動制御だからinActivateするけどこっちが撃つ弾はその必要はないので。
+// 直進弾。
+function bl0(obj){
 	let mArray = [setV(8, 0), straight];
-	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
+	let b = new bullet(obj.x, obj.y, 4, 4, mArray, [], 0, 0, 0, 5); // ダメージは5.
+	b.collider.setId(2);
+	obj.bulletCase.push(b);
+	//return [new bullet(obj.x, obj.y, 4, 4, mArray, [], 0, 0, 0, 5)]; // ダメージは5
+}
+// 5Wayとか、前後に発射とか、前後上下に発射とか面白そう。
+
+// 5Way弾
+function bl1(obj){
+	for(let degree = -30; degree <= 30; degree += 15){
+		let mArray = [setPoleV(6, degree), straightWithLineBound(1, 0, obj.x + 100), setV(6, 0), straight];
+		let b = new bullet(obj.x, obj.y, 6, 6, mArray, [], 28, 147, 64, 3) // ダメージは3
+		b.collider.setId(2);
+		obj.bulletCase.push(b);
+	}
 }
 
-function toPlayer(_obj){
-	let dir = getPlayerDirection(_obj.x, _obj.y);
-	let vx = 3 * Math.cos(dir);
-	let vy = 3 * Math.sin(dir);
-	let mArray = [setV(vx, vy), straight];
-	return [new bullet(_obj.x, _obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
+// 自機誘導弾。
+function bl128(obj){
+	let mArray = [setHoming(5), straight];
+	let b = new bullet(0, 0, 4, 4, mArray, [], 163, 73, 164, 5);
+	b.collider.setId(3);
+	b.inActivate();
+	obj.bulletCase.push(b); // ダメージは5.
+	//return [new bullet(obj.x, obj.y, 4, 4, mArray, [], 163, 73, 164, 5)]; // ダメージは5
 }
 
 // ----------------------------------------------------------------------------------- //
