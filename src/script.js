@@ -126,8 +126,7 @@ class play extends state{
 		this.enemyArray = []; // aliveでないものを排除
 		this.playerBulletArray = [];
 		this.enemyBulletArray = [];
-		this.appearEffectArray = [];
-		this.vanishEffectArray = [];
+		this.effectArray = [];
 		this.generator = new enemyGenerator();
 		this.lv = -1;
 	}
@@ -136,8 +135,7 @@ class play extends state{
 		this.enemyArray = [];
 		this.playerBulletArray = [];
 		this.enemyBulletArray = [];
-		this.appearEffectArray = [];
-		this.vanishEffectArray = []
+		this.effectArray = [];
 		this.interval = 120;
 		this.generator.reset();
 	}
@@ -155,7 +153,7 @@ class play extends state{
 			_master.shiftIndex(-1);
 			flagReset();
 		}
-		every([[this.generator, this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.appearEffectArray, this.vanishEffectArray], "update");
+		every([[this.generator, this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.effectArray], "update");
 		this.collisionCheck();
 		this.charge();
 		this.eject();
@@ -193,10 +191,10 @@ class play extends state{
 		text("bullet " + (this.enemyBulletArray.length + this.playerBulletArray.length), 100, 200);
 		fill(255, 0, 0);
 		rect(0, 0, 40, 40);
-		every([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.appearEffectArray, this.vanishEffectArray], "render");
+		every([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray, this.effectArray], "render");
 	}
 	charge(){
-		this.generator.charge(this.appearEffectArray); // ここでエフェクトも同時に発生させてエフェクトが終わり次第・・みたいな。
+		this.generator.charge(this.effectArray); // ここでエフェクトも同時に発生させてエフェクトが終わり次第・・みたいな。
 		// エフェクトにenemyを持たせて排除するときにenemyを出させるとか。
 		// つまりenemyをチャージする代わりにenemy持ちのエフェクトをチャージする。
 		// プレイヤーについてはやられたらエフェクト、でいいよ。
@@ -207,7 +205,7 @@ class play extends state{
 		for(let i = 0; i < this.enemyArray.length; i++){
 			let e = this.enemyArray[i];
 			if(!e.alive){
-				this.vanishEffectArray.push(new simpleVanish(60, e));
+				this.effectArray.push(new simpleVanish(60, e));
 				this.enemyArray.splice(i, 1);
 			}
 		}
@@ -219,17 +217,11 @@ class play extends state{
 			let b = this.enemyBulletArray[i];
 			if(!b.alive){ this.enemyBulletArray.splice(i, 1); }
 		}
-		for(let i = 0; i < this.appearEffectArray.length; i++){
-			let ef = this.appearEffectArray[i];
+		for(let i = 0; i < this.effectArray.length; i++){
+			let ef = this.effectArray[i];
 			if(ef.finished){
-				this.enemyArray.push(ef.enemy); // appearEffectが終わり次第敵を出現させる
-				this.appearEffectArray.splice(i, 1);
-			}
-		}
-		for(let i = 0; i < this.vanishEffectArray.length; i++){
-			let ef = this.vanishEffectArray[i];
-			if(ef.finished){
-				this.vanishEffectArray.splice(i, 1);
+				if(ef.typeName === "appear"){ this.enemyArray.push(ef.enemy); }
+				this.effectArray.splice(i, 1);
 			}
 		}
 	}
@@ -691,7 +683,7 @@ class effect{
 class simpleAppear extends effect{
 	constructor(span, enemy){
 		super(span);
-		this.type = "appear";
+		this.typeName = "appear";
 		this.enemy = enemy;
 	}
 	render(){
@@ -712,7 +704,7 @@ class simpleAppear extends effect{
 class simpleVanish extends effect{
 	constructor(span, obj){
 		super(span);
-		this.type = "vanish";
+		this.typeName = "vanish";
 		this.x = obj.x;
 		this.y = obj.y;
 		this.c = obj.c;
