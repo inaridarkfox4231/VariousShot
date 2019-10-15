@@ -147,8 +147,6 @@ class play extends state{
     // ゆくゆくはjsonに落とすつもり
 		let array = [wait(120), simpleGenerate([0], [{x:600, y:100}]), wait(40), shiftLoop(2, 5)];
 		array.push(...[wait(120), simpleGenerate([0], [{x:600, y:380}]), wait(40), shiftLoop(2, 5)]);
-		//let array = [createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:100}]), createGenerateWait(40), createGenerateLoop(2, 5)];
-		//array.push(...[createGenerateWait(120), createSimpleGenerate([0], [{x:600, y:380}]), createGenerateWait(40), createGenerateLoop(2, 5)]);
 		this.generator.setCommand(array);
 	}
 	update(_master){
@@ -679,6 +677,7 @@ function toPlayer(_obj){
 
 class effect{
 	constructor(span){
+		this.type = "";
 		this.count = 0;
 		this.span = span;
 		this.finished = false;
@@ -692,6 +691,7 @@ class effect{
 class simpleAppear extends effect{
 	constructor(span, enemy){
 		super(span);
+		this.type = "appear";
 		this.enemy = enemy;
 	}
 	render(){
@@ -712,6 +712,7 @@ class simpleAppear extends effect{
 class simpleVanish extends effect{
 	constructor(span, obj){
 		super(span);
+		this.type = "vanish";
 		this.x = obj.x;
 		this.y = obj.y;
 		this.c = obj.c;
