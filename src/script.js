@@ -1,5 +1,9 @@
 "use strict";
 
+// quadTreeを用いた衝突判定のコードは、
+// 古都ことさん（@kfurumiya）のブログ（https://sbfl.net/blog/2017/12/03/javascript-collision/）
+// を参考にしました。感謝します。
+
 let all;
 let mX = 0;
 let mY = 0;
@@ -160,7 +164,7 @@ class play extends state{
 		this.collisionCheck();
 		this.charge();
 		this.eject();
-	}
+	}/*
 	collisionCheck(){
 		// playerとenemy
 	  for(let i = 0; i < this.enemyArray.length; i++){
@@ -195,6 +199,114 @@ class play extends state{
 			}
 		}
 		// いずれ線型4分木（quadTree）で書き直す
+	}*/
+	collisionCheck(){
+		this._qTree.clear(); // 四分木のクリア
+		this._qTree.addActors([[this.player], this.enemyArray, this.playerBulletArray, this.enemyBulletArray]);
+		this._hitTest();
+	}
+	_hitTest(currentIndex = 0, objList = []){
+		const currentCell = this._qTree.data[currentIndex];
+
+    // 現在のセルの中と、衝突オブジェクトリストとで
+    // 当たり判定を取る。
+    this._hitTestInCell(currentCell, objList);
+
+    // 次に下位セルを持つか調べる。
+    // 下位セルは最大4個なので、i=0から3の決め打ちで良い。
+    let hasChildren = false;
+    for(let i = 0; i < 4; i++) {
+      const nextIndex = currentIndex * 4 + 1 + i;
+
+      // 下位セルがあったら、
+      const hasChildCell = (nextIndex < this._qTree.data.length) && (this._qTree.data[nextIndex] !== null);
+      hasChildren = hasChildren || hasChildCell;
+      if(hasChildCell) {
+        // 衝突オブジェクトリストにpushして、
+        objList.push(...currentCell);
+        // 下位セルで当たり判定を取る。再帰。
+        this._hitTest(nextIndex, objList);
+      }
+    }
+    // 終わったら追加したオブジェクトをpopする。
+    if(hasChildren) {
+      const popNum = currentCell.length;
+      for(let i = 0; i < popNum; i++) {
+        objList.pop();
+      }
+    }
+  }
+	// セルの中の当たり判定を取る。
+  // 衝突オブジェクトリストとも取る。
+  _hitTestInCell(cell, objList) {
+    // セルの中。総当たり。
+    const length = cell.length;
+    const cellColliderCahce = new Array(length); // globalColliderのためのキャッシュ。
+    if(length > 0) { cellColliderCahce[0] = cell[0].collider; }
+
+    for(let i=0; i < length - 1; i++) {
+      const obj1 = cell[i];
+      const collider1  = cellColliderCahce[i]; // キャッシュから取ってくる。
+      for(let j=i+1; j < length; j++) {
+        const obj2 = cell[j];
+
+        // キャッシュから取ってくる。
+        // ループ初回は直接取得してキャッシュに入れる。
+        let collider2;
+        if(i === 0) {
+          collider2 = obj2.collider;
+          cellColliderCahce[j] = collider2;
+        } else {
+          collider2 = cellColliderCahce[j];
+        }
+        // Cahceへの代入までスルーしちゃうとまずいみたい
+        // ここでobj1, obj2の性質によるバリデーションかけてfalseならcontinue
+        if(!this.validation(obj1.collider.id, obj2.collider.id)){ continue; }
+
+        const hit = this._detector.detectCollision(collider1, collider2);
+
+        if(hit) {
+          if(obj1.alive && obj2.alive){
+            obj1.hit(obj2);
+            obj2.hit(obj1);
+          }
+        }
+      }
+    }
+
+    // 衝突オブジェクトリストと。
+    const objLength = objList.length;
+    const cellLength = cell.length;
+    for(let i = 0; i < objLength; i++) {
+      const obj = objList[i];
+      const collider1 = obj.collider; // 直接取得する。
+      for(let j = 0; j < cellLength; j++) {
+        const cellObj = cell[j];
+
+        // objとcellobjの性質からバリデーションかけてfalseならcontinue.
+        if(!this.validation(obj.collider.id, cellObj.collider.id)){ continue; }
+
+        const collider2 = cellColliderCahce[j]; // キャッシュから取ってくる。
+        const hit = this._detector.detectCollision(collider1, collider2);
+
+        if(hit) {
+          if(obj.alive && cellObj.alive){
+            obj.hit(cellObj);
+            cellObj.hit(obj);
+          }
+        }
+      }
+    }
+  }
+	validation(id1, id2){
+		// 0:player, 1:enemy, 2:playerBullet, 3:enemyBullet.
+		if(id1 === 0 && id2 === 1){ return true; }
+		if(id1 === 1 && id2 === 0){ return true; }
+		if(id1 === 1 && id2 === 2){ return true; }
+		if(id1 === 2 && id2 === 1){ return true; }
+		if(id1 === 0 && id2 === 3){ return true; }
+		if(id1 === 3 && id2 === 0){ return true; }
+		return false;
 	}
 	render(_master){
 		background(220);
@@ -261,6 +373,10 @@ class circleCollider extends collider{
 		this.y = y;
 		this.r = r;
 	}
+	get left(){ return this.x - this.r; }
+	get top(){ return this.x + this.r; }
+	get top(){ return this.y - this.r; }
+	get bottom(){ return this.y + this.r; }
 	update(x, y, r){
 		this.x = x;
 		this.y = y;
@@ -278,6 +394,10 @@ class rectCollider extends collider{
 		this.w = w;
 		this.h = h;
 	}
+	get left(){ return this.x - this.w; }
+	get top(){ return this.x + this.w; }
+	get top(){ return this.y - this.h; }
+	get bottom(){ return this.y + this.h; }
 	update(x, y, w, h){
 		this.x = x;
 		this.y = y;
@@ -367,7 +487,7 @@ class linearQuadTreeSpace {
   // Actorのコリジョンからモートン番号を計算し、
   // 適切なセルに割り当てる。
   addActor(actor){
-    const collider = actor.myCollider;
+    const collider = actor.collider;
 
     // モートン番号の計算。
     const leftTopMorton = this._calc2DMortonNumber(collider.left, collider.top);
@@ -406,11 +526,19 @@ class linearQuadTreeSpace {
     // 線形四分木に追加する。
     this._addNode(actor, level, cellNumber);
   }
+	addActors(arrayOfArray){
+		for(let i = 0; i < arrayOfArray.length; i++){
+			let actorArray = arrayOfArray[i];
+			for(let k = 0; k < actorArray.length; k++){
+				this.addActor(actorArray[k]);
+			}
+		}
+	}
 
   // 線形四分木の長さを伸ばす。
   _expand(){
     const nextLevel = this._currentLevel + 1;
-    const length = ((4 ** (nextLevel+1)) - 1) / 3;
+    const length = ((4 ** (nextLevel + 1)) - 1) / 3;
 
     while(this.data.length < length) {
       this.data.push(null);
