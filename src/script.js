@@ -129,6 +129,9 @@ class play extends state{
 		this.effectArray = [];
 		this.generator = new enemyGenerator();
 		this.lv = -1;
+		// 衝突関連。毎回初期化する。
+    this._qTree = new linearQuadTreeSpace(width, height, 3);
+    this._detector = new collisionDetector();
 	}
 	reset(){
 		this.player.initialize(50, 320, 5, 100);
@@ -163,7 +166,11 @@ class play extends state{
 	  for(let i = 0; i < this.enemyArray.length; i++){
 			let e = this.enemyArray[i];
 			if(!e.alive){ continue; }
-			if(collideObjects(this.player.collider, e.collider)){ this.player.hit(e); e.hit(this.player); }
+			//if(collideObjects(this.player.collider, e.collider)){ this.player.hit(e); e.hit(this.player); }
+			if(this._detector.detectCollision(this.player.collider, e.collider)){
+				this.player.hit(e);
+				e.hit(this.player);
+			}
 		}
 		// playerBulletとenemy
     for(let k = 0; k < this.playerBulletArray.length; k++){
@@ -172,14 +179,20 @@ class play extends state{
 			for(let i = 0; i < this.enemyArray.length; i++){
 				let e = this.enemyArray[i];
 				if(!e.alive){ continue; }
-				if(collideObjects(b.collider, e.collider)){ b.hit(e); e.hit(b); }
+			if(this._detector.detectCollision(b.collider, e.collider)){
+					b.hit(e);
+					e.hit(b);
+				}
 			}
 		}
 		// enemyBulletとplayer
 		for(let h = 0; h < this.enemyBulletArray.length; h++){
 			let b = this.enemyBulletArray[h];
 			if(!b.alive){ continue; }
-			if(collideObjects(this.player.collider, b.collider)){ this.player.hit(b); b.hit(this.player); }
+			if(this._detector.detectCollision(this.player.collider, b.collider)){
+				this.player.hit(b);
+				b.hit(this.player);
+			}
 		}
 		// いずれ線型4分木（quadTree）で書き直す
 	}
@@ -255,10 +268,7 @@ class circleCollider extends collider{
 	}
 }
 
-// x, yは左上の座標。
-// colliderのパラメータとしては、中心の座標(x, y)及び横の長さの半分wと縦の長さの半分hという感じにする
-// と思ったけどやめた。rectの描画の時だけ計算するようにしよ。bullet発射時とか面倒だし。
-// というわけでwやhは辺の長さの半分になります。
+// x, yは中心、wとhは横幅の半分、縦幅の半分
 class rectCollider extends collider{
 	constructor(id, x, y, w, h){
 		super(id);
@@ -276,18 +286,196 @@ class rectCollider extends collider{
 	}
 }
 
-function collideObjects(_collider1, _collider2){
-	if(_collider1.typeName === 'circle' && _collider2.typeName === 'circle'){
-		if(dist(_collider1.x, _collider1.y, _collider2.x, _collider2.y) < _collider1.r + _collider2.r){
-			return true;
-		}
-	}else if(_collider1.typeName === 'rect' && _collider2.typeName === 'rect'){
-		let f1 = (abs(_collider1.x - _collider2.x) < _collider1.w + _collider2.w);
-		let f2 = (abs(_collider1.y - _collider2.y) < _collider1.h + _collider2.h);
-		if(f1 && f2){ return true; }
-	}
-	return false;
+class collisionDetector {
+  // 当たり判定を検出する。
+  detectCollision(collider1, collider2) {
+    if(collider1.typeName == 'rect' && collider2.typeName == 'rect'){
+      return this.detectRectangleCollision(collider1, collider2);
+    }
+    if(collider1.typeName == 'circle' && collider2.typeName == 'circle'){
+      return this.detectCircleCollision(collider1, collider2);
+    }
+		return false;
+  }
+  // 矩形同士の当たり判定を検出する。
+  detectRectangleCollision(rect1, rect2){
+    let flag1 = (abs(rect1.x - rect2.x) < rect1.w + rect2.w);
+		let flag2 = (abs(rect1.y - rect2.y) < rect1.h + rect2.h);
+		return (flag1 && flag2);
+  }
+  // 円形同士
+  detectCircleCollision(circle1, circle2){
+    const distance = Math.sqrt((circle1.x - circle2.x) ** 2 + (circle1.y - circle2.y) ** 2);
+    const sumOfRadius = circle1.r + circle2.r;
+    return (distance < sumOfRadius);
+  }
 }
+
+// ----------------------------------------------------------------------------------- //
+// quadTree関連。
+class linearQuadTreeSpace {
+  constructor(_width, _height, level){
+    this._width = _width;
+    this._height = _height;
+    this.data = [null];
+    this._currentLevel = 0;
+
+    // 入力レベルまでdataを伸長する。
+    while(this._currentLevel < level){
+      this._expand();
+    }
+  }
+
+  // dataをクリアする。
+  clear() {
+    this.data.fill(null);
+  }
+
+  // 要素をdataに追加する。
+  // 必要なのは、要素と、レベルと、レベル内での番号。
+  _addNode(node, level, index){
+    // オフセットは(4^L - 1)/3で求まる。
+    // それにindexを足せば線形四分木上での位置が出る。
+    const offset = ((4 ** level) - 1) / 3;
+    const linearIndex = offset + index;
+
+    // もしdataの長さが足りないなら拡張する。
+    while(this.data.length <= linearIndex){
+      this._expandData();
+    }
+
+    // セルの初期値はnullとする。
+    // しかし上の階層がnullのままだと面倒が発生する。
+    // なので要素を追加する前に親やその先祖すべてを
+    // 空配列で初期化する。
+    let parentCellIndex = linearIndex;
+    while(this.data[parentCellIndex] === null){
+      this.data[parentCellIndex] = [];
+
+      parentCellIndex = Math.floor((parentCellIndex - 1) / 4);
+      if(parentCellIndex >= this.data.length){
+        break;
+      }
+    }
+
+    // セルに要素を追加する。
+    const cell = this.data[linearIndex];
+    cell.push(node);
+  }
+
+  // Actorを線形四分木に追加する。
+  // Actorのコリジョンからモートン番号を計算し、
+  // 適切なセルに割り当てる。
+  addActor(actor){
+    const collider = actor.myCollider;
+
+    // モートン番号の計算。
+    const leftTopMorton = this._calc2DMortonNumber(collider.left, collider.top);
+    const rightBottomMorton = this._calc2DMortonNumber(collider.right, collider.bottom);
+
+    // 左上も右下も-1（画面外）であるならば、
+    // レベル0として扱う。
+    // なおこの処理には気をつける必要があり、
+    // 画面外に大量のオブジェクトがあるとレベル0に
+    // オブジェクトが大量配置され、当たり判定に大幅な処理時間がかかる。
+    // 実用の際にはここをうまく書き換えて、あまり負担のかからない
+    // 処理に置き換えるといい。
+    if(leftTopMorton === -1 && rightBottomMorton === -1){
+      this._addNode(actor, 0, 0);
+      return;
+    }
+
+    // 左上と右下が同じ番号に所属していたら、
+    // それはひとつのセルに収まっているということなので、
+    // 特に計算もせずそのまま現在のレベルのセルに入れる。
+    if(leftTopMorton === rightBottomMorton){
+      this._addNode(actor, this._currentLevel, leftTopMorton);
+      return;
+    }
+
+    // 左上と右下が異なる番号（＝境界をまたいでいる）の場合、
+    // 所属するレベルを計算する。
+    const level = this._calcLevel(leftTopMorton, rightBottomMorton);
+
+    // そのレベルでの所属する番号を計算する。
+    // モートン番号の代表値として大きい方を採用する。
+    // これは片方が-1の場合、-1でない方を採用したいため。
+    const larger = Math.max(leftTopMorton, rightBottomMorton);
+    const cellNumber = this._calcCell(larger, level);
+
+    // 線形四分木に追加する。
+    this._addNode(actor, level, cellNumber);
+  }
+
+  // 線形四分木の長さを伸ばす。
+  _expand(){
+    const nextLevel = this._currentLevel + 1;
+    const length = ((4 ** (nextLevel+1)) - 1) / 3;
+
+    while(this.data.length < length) {
+      this.data.push(null);
+    }
+
+    this._currentLevel++;
+  }
+
+  // 16bitの数値を1bit飛ばしの32bitにする。
+  _separateBit32(n){
+    n = (n|(n<<8)) & 0x00ff00ff;
+    n = (n|(n<<4)) & 0x0f0f0f0f;
+    n = (n|(n<<2)) & 0x33333333;
+    return (n|(n<<1)) & 0x55555555;
+  }
+
+  // x, y座標からモートン番号を算出する。
+  _calc2DMortonNumber(x, y){
+    // 空間の外の場合-1を返す。
+    if(x < 0 || y < 0){
+      return -1;
+    }
+
+    if(x > this._width || y > this._height){
+      return -1;
+    }
+
+    // 空間の中の位置を求める。
+    const xCell = Math.floor(x / (this._width / (2 ** this._currentLevel)));
+    const yCell = Math.floor(y / (this._height / (2 ** this._currentLevel)));
+
+    // x位置とy位置をそれぞれ1bit飛ばしの数にし、
+    // それらをあわせてひとつの数にする。
+    // これがモートン番号となる。
+    return (this._separateBit32(xCell) | (this._separateBit32(yCell)<<1));
+  }
+
+  // オブジェクトの所属レベルを算出する。
+  // XORを取った数を2bitずつ右シフトして、
+  // 0でない数が捨てられたときのシフト回数を採用する。
+  _calcLevel(leftTopMorton, rightBottomMorton){
+    const xorMorton = leftTopMorton ^ rightBottomMorton;
+    let level = this._currentLevel - 1;
+    let attachedLevel = this._currentLevel;
+
+    for(let i = 0; level >= 0; i++){
+      const flag = (xorMorton >> (i * 2)) & 0x3;
+      if(flag > 0){
+        attachedLevel = level;
+      }
+
+      level--;
+    }
+
+    return attachedLevel;
+  }
+
+  // 階層を求めるときにシフトした数だけ右シフトすれば
+  // 空間の位置がわかる。
+  _calcCell(morton, level){
+    const shift = ((this._currentLevel - level) * 2);
+    return morton >> shift;
+  }
+}
+
 
 // ----------------------------------------------------------------------------------- //
 // player関連。
