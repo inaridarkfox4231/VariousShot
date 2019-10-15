@@ -615,7 +615,7 @@ class player{
 		this.maxLife = life;
 		this.active = true;
 		this.shotId = 0;
-		this.maxShotId = 2;
+		this.maxShotId = 3;
 		this.bulletCase = [];
 		this.span = 0;
 		this.c = {r:0, g:0, b:0};
@@ -757,6 +757,15 @@ class enemy extends mover{
 		if(this.life > 0){ return; }
 		this.life = 0;
 		this.inActivate();
+	}
+	render(){
+	  if(!this.active){ return; }
+		fill(this.c.r, this.c.g, this.c.b);
+		rect(this.x - this.w, this.y - this.h, this.w * 2, this.h * 2);
+		fill(150);
+		rect(this.x - this.w * 2 - 2, this.y + this.h * 1.5 - 2, this.w * 4 + 4, 9);
+		fill(this.c.r, this.c.g, this.c.b);
+		rect(this.x - this.w * 2, this.y + this.h * 1.5, this.w * 4 *  this.life / this.maxLife, 5);
 	}
 }
 
