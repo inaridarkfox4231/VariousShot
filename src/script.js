@@ -127,7 +127,7 @@ class play extends state{
 	constructor(){
 		super();
 		this.player = new player(50, 320, 5, 100);
-		this.enemyArray = []; // aliveでないものを排除
+		this.enemyArray = []; // activeでないものを排除
 		this.bulletArray = [];
 		this.effectArray = [];
 		this.generator = new enemyGenerator();
@@ -229,7 +229,7 @@ class play extends state{
         const hit = this._detector.detectCollision(collider1, collider2);
 
         if(hit) {
-          if(obj1.alive && obj2.alive){
+          if(obj1.active && obj2.active){
             obj1.hit(obj2);
             obj2.hit(obj1);
           }
@@ -253,7 +253,7 @@ class play extends state{
         const hit = this._detector.detectCollision(collider1, collider2);
 
         if(hit) {
-          if(obj.alive && cellObj.alive){
+          if(obj.active && cellObj.active){
             obj.hit(cellObj);
             cellObj.hit(obj);
           }
@@ -292,18 +292,18 @@ class play extends state{
 	eject(){
 		for(let i = 0; i < this.enemyArray.length; i++){
 			let e = this.enemyArray[i];
-			if(!e.alive){
+			if(!e.active){
 				this.effectArray.push(new simpleVanish(60, e));
 				this.enemyArray.splice(i, 1);
 			}
 		}
 		for(let i = 0; i < this.bulletArray.length; i++){
 			let b = this.bulletArray[i];
-			if(!b.alive){ this.bulletArray.splice(i, 1); }
+			if(!b.active){ this.bulletArray.splice(i, 1); }
 		}
 		//for(let i = 0; i < this.enemyBulletArray.length; i++){
 		//	let b = this.enemyBulletArray[i];
-		//	if(!b.alive){ this.enemyBulletArray.splice(i, 1); }
+		//	if(!b.active){ this.enemyBulletArray.splice(i, 1); }
 		//}
 		for(let i = 0; i < this.effectArray.length; i++){
 			let ef = this.effectArray[i];
@@ -578,7 +578,7 @@ class player{
 		this.c = {r:0,g:0,b:0};
 		this.life = life;
 		this.maxLife = life;
-		this.alive = true;
+		this.active = true;
 		this.speed = speed;
 		this.shotId = 0;
 		this.maxShotId = 1;
@@ -593,7 +593,7 @@ class player{
 		this.speed = speed;
 		this.life = life;
 		this.maxLife = life;
-		this.alive = true;
+		this.active = true;
 		this.shotId = 0;
 		this.maxShotId = 1;
 		this.span = 0;
@@ -622,7 +622,7 @@ class player{
 		this.boundCheck();
 	}
 	update(){
-		if(!this.alive){ return; }
+		if(!this.active){ return; }
 		// spanが正なら減らす
 		if(this.span > 0){ this.span--; }
 		if(this.blink > 0){ this.blink--; }
@@ -637,7 +637,7 @@ class player{
 		else if(this.y > height - 8){ this.y = height - 8; }
 	}
 	render(){
-		if(!this.alive){ return; }
+		if(!this.active){ return; }
 		noStroke();
 		if(this.blink > 0 && Math.floor(this.blink / 2) % 2 === 0){ return; }
 		fill(this.c.r, this.c.g, this.c.b);
@@ -653,7 +653,7 @@ class player{
 		}
 		if(this.life > 0){ this.blink = 30; return; }
 		this.life = 0;
-		this.alive = false;
+		this.active = false;
 	}
 }
 
@@ -677,7 +677,7 @@ class mover{
 		// そうやるとHPが0になったときに弾を発射して死ぬとか出来る可能性がある（可能性）。
 		this.shotId = -1;
 		this.fire = false;
-		this.alive = true;
+		this.active = true;
 		this.collider = new rectCollider(-1, x, y, w, h);
 	}
 	charge(array){
@@ -698,12 +698,12 @@ class mover{
 		this.vx = _vx * Math.cos(angle) - _vy * Math.sin(angle);
 		this.vy = _vy * Math.cos(angle) + _vx * Math.sin(angle);
 	}
-	eject(){
-		this.alive = false;
+	killedAction(){
+		this.active = false;
 	}
 	boundCheck(){
 		if(this.x < this.w || this.x > width - this.w || this.y < this.h || this.y > height - this.h){
-			this.eject();
+			this.active = false;
 		}
 	}
 	act(){
@@ -711,12 +711,13 @@ class mover{
 		this.shotArray.execute(this);
 	}
 	update(){
+		if(!this.active){ return; }
 		this.act();
 		this.boundCheck();
 		this.collider.update(this.x, this.y, this.w, this.h);
 	}
 	render(){
-	  if(!this.alive){ return; }
+	  if(!this.active){ return; }
 		fill(this.c.r, this.c.g, this.c.b);
 		rect(this.x - this.w, this.y - this.h, this.w * 2, this.h * 2);
 		//ellipse(this.x, this.y, this.diam, this.diam);
@@ -736,7 +737,7 @@ class enemy extends mover{
 		this.life -= obj.damage;
 		if(this.life > 0){ return; }
 		this.life = 0;
-		this.alive = false;
+		this.killedAction();
 	}
 }
 
@@ -746,7 +747,7 @@ class bullet extends mover{
 		this.damage = damage;
 	}
 	hit(obj){
-		this.alive = false;
+		this.killedAction();
 	}
 }
 
