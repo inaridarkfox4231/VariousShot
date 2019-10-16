@@ -173,6 +173,7 @@ class play extends state{
 			array.push(...[simpleGenerate([0], [{x:560 + random(40), y:60 + random(120)}])]);
 			array.push(...[simpleGenerate([0], [{x:560 + random(40), y:420 - random(120)}]), wait(60)]);
 		}
+		array.push(...[wait(240), simpleGenerate([3, 3], [{x:600, y:120}, {x:600, y:360}])]);
 		this.generator.setCommand(array);
 	}
 	update(_master){
@@ -746,7 +747,7 @@ class mover{
 // enemy側からmasterのenemyBulletArrayに放り込むか
 class enemy extends mover{
 	constructor(x, y, w, h, moveArray, shotArray, r, g, b, life){
-		super(x, y, w, h, moveArray, shotArray, r ,g, b);
+		super(x, y, w, h, moveArray, shotArray, r, g, b);
 		this.life = life;
 		this.maxLife = life;
 	}
@@ -762,10 +763,24 @@ class enemy extends mover{
 	  if(!this.active){ return; }
 		fill(this.c.r, this.c.g, this.c.b);
 		rect(this.x - this.w, this.y - this.h, this.w * 2, this.h * 2);
+		// HPゲージ。
 		fill(150);
 		rect(this.x - this.w * 2 - 2, this.y + this.h * 1.5 - 2, this.w * 4 + 4, 9);
 		fill(this.c.r, this.c.g, this.c.b);
 		rect(this.x - this.w * 2, this.y + this.h * 1.5, this.w * 4 *  this.life / this.maxLife, 5);
+	}
+}
+
+// enemyの継承でbossを作る。HPが減った時のパターンチェンジなど。
+class boss extends enemy{
+  constructor(x, y, w, h, moveArray, shotArray, r, g, b, life, patternArray){
+		super(x, y, w, h, moveArray, shotArray, r, g, b, life);
+		this.patternArray = new commandArray(patternArray);
+	}
+	act(){
+		this.moveArray.execute(this);
+		this.shotArray.execute(this);
+		this.patternArray.execute(this); // パターンチェンジを司る感じ
 	}
 }
 
@@ -921,6 +936,27 @@ function rotWithLimit(degree, limit){ return (obj, cArray) => {
 		cArray.shiftIndex(1);
 } }
 
+// to. 目的地に向かってぎゅーん
+
+// (toX, toY)に向かってspanフレームで到達する
+function to(toX, toY, span){ return (obj, cArray) => {
+	obj.x = map(cArray.t + 1, cArray.t, span, obj.x, toX);
+	obj.y = map(cArray.t + 1, cArray.t, span, obj.y, toY);
+	cArray.t++;
+	if(cArray.t < span){ return; }
+	cArray.t = 0; cArray.shiftIndex(1);
+} }
+// (toX, toY)に向かってイージングを掛けながらspanフレームで到達する
+function toEasing(toX, toY, span, id){ return (obj, cArray) => {
+	let prg0 = cArray.t / span;
+	let prg1 = (cArray.t + 1) / span;
+	obj.x = map(easing(id, prg1), easing(id, prg0), 1, obj.x, toX);
+	obj.y = map(easing(id, prg1), easing(id, prg0), 1, obj.y, toY);
+	cArray.t++;
+	if(cArray.t < span){ return; }
+	cArray.t = 0; cArray.shiftIndex(1);
+} }
+
 // shiftは相対変化、warpは絶対変化。たとえばピンポイントで0にして、とかいう風に使う。
 function jump(n){ return (obj, cArray) => { cArray.shiftIndex(n); } }
 function back(n){ return (obj, cArray) => { cArray.shiftIndex(-n); } }
@@ -963,11 +999,12 @@ function setSingle(id, info = {}){ return (obj, cArray) => {
 	cArray.shiftIndex(1);
 } }
 // いくつも同じものを放り込む。
-function setMulti(id, n, info = []){ return (obj, cArray) => {
+function setMulti(id, n, info = {}){ return (obj, cArray) => {
 	for(let i = 0; i < n; i++){ chargeBullet(id, obj, info); }
 	cArray.shiftIndex(1);
 } }
 
+// 敵を作る感じ
 function simpleGenerate(idArray, posArray){ return (obj, cArray) => {
 	obj.setEnemy(idArray, posArray); cArray.shiftIndex(1);
 } }
@@ -991,18 +1028,11 @@ function fireAll(obj){
 	})
 }
 
-// てきをつくる
-// 1:上半分から5匹
-// 間隔
-// 2:下半分から5匹
-// 間隔
-// 縦に3匹並んで出現が高さランダムで5回
-// 間隔
-// 以上、攻撃はすべて一定間隔で自機誘導弾
-// 上と下で1匹ずつゆっくり出てきてこっちに扇状に5回ずつ弾を放つ、からの中心経由でクロスするように消える
-// 間隔
-// 上と下から5匹ずつ出てきてカーブして直進しつつ左に消える感じ
-// 間隔
+// パターンチェンジ
+function patternChange(ratio, mIndex, sIndex){ return (obj, cArray) => {
+	// HPがMaxのratio以下になるとmとsのIndexをいじる
+
+} }
 
 // ----------------------------------------------------------------------------------- //
 // 敵とか弾丸についての関数
@@ -1017,6 +1047,10 @@ function getEnemy(id, x, y){
 		  return en1(x, y);
 		case 2:
 		  return en2(x, y);
+		case 3:
+		  return en3(x, y);
+		case 100:
+		  return en100();
 	}
 }
 
@@ -1039,8 +1073,24 @@ function en1(x, y){
 // lifeは40. その場で自機方向含めて扇状に13発(±60°で10°おき)発射を5回したのち、画面中央を通り越して消滅。
 function en2(x, y){
   let mArray = [wait(150), setAbsHoming(6, width / 2, height / 2), accellMulti(1.05)];
-	let sArray = [setMulti(129, 5, {bound:6}), fire(0, 13), wait(20), shiftLoop(2, 5)];
+	let sArray = [setMulti(129, 5, {start:-60, diff:10, n:13}), fire(0, 13), wait(20), shiftLoop(2, 5)];
 	return new enemy(x, y, 20, 20, mArray, sArray, 0, 162, 232, 40);
+}
+
+// lifeは150. 右から左ばらまき、ガトリング10発、左から右ばらまき、中心向かってぎゅーん消える
+function en3(x, y){
+	let mArray = [wait(360), setAbsHoming(6, width / 2, height / 2), accellMulti(1.05)];
+	let sArray = [setSingle(129, {start:-60, diff:5, n:25}), setMulti(128, 10)];
+	sArray.push(...[setSingle(129, {start:60, diff:-5, n:25}), fire(0, 1), wait(4), shiftLoop(2, 25)]);
+	sArray.push(...[wait(10), fire(0, 1), wait(4), shiftLoop(2, 10)]);
+	sArray.push(...[wait(10), fire(0, 1), wait(4), shiftLoop(2, 25), wait(10)]);
+	sArray.push(...[setV(-5, 0), accellMulti(1.05)]);
+	return new enemy(x, y, 20, 20, mArray, sArray, 0, 92, 132, 150);
+}
+
+// ちょっと早いけど第一ステージのボス。
+function en100(){
+
 }
 
 // バックインで入って誘導弾をばらまきつつぎゅーんとフェードアウト
@@ -1107,11 +1157,14 @@ function bl128(obj, info){
 	b.inActivate();
 	obj.bulletCase.push(b); // ダメージは5.
 }
-// 自機の方向に向かって扇状に・・発射時に変位（角度回転）をずらす感じ。
+// 自機の方向からのずれを角度と間隔指定で入れるやつ
 function bl129(obj, info){
-	let bound = info.bound; // たとえば6なら全部で6 * 2 + 1の13発。
-	for(let diff = -bound * 10; diff <= bound * 10; diff += 10){
-		let mArray = [setHoming(5), rot(diff), straight];
+	let start = info.start; // startからdiff間隔でn個。
+	let diff = info.diff;
+	let n = info.n;
+	for(let i = 0; i < n; i++){
+		let degree = start + diff * i;
+		let mArray = [setHoming(5), rot(degree), straight];
 		let b = new bullet(0, 0, 4, 4, mArray, [], 255, 201, 14, 5);
 		b.collider.setId(3);
 		b.inActivate();
@@ -1187,4 +1240,34 @@ function every(arrayOfArray, actName){
 function getPlayerDirection(x, y){
 	let p = all.currentState.player;
 	return atan2(p.y - y, p.x - x);
+}
+
+// イージング
+function easing(id, x){
+	switch(id){
+		case 0: // ノーマル
+			return x;
+		case 1: // slowIn fastOut
+			return x * x;
+		case 2: // backIn fastOut
+			return x * (2 * x - 1);
+		case 3: // slowIn slowOut
+			return (1 - Math.cos(Math.PI * x)) / 2;
+		case 4: // slowIn veryFastOut
+		  return 1 - pow(1 - x * x, 0.5);
+		case 5: // backIn backOut
+		  return (50 / 23) * (-2 * pow(x, 3) + 3 * pow(x, 2) - 0.54 * x);
+		case 6: // verySlowIn
+		  return 3 * pow(x, 4) - 2 * pow(x, 6);
+		case 7: // backIn backOut
+		  return -12 * pow(x, 3) + 18 * pow(x, 2) - 5 * x;
+		case 8: // fastIn QuadSlowOut
+		  return (7 / 8) + (x / 8) - (7 / 8) * pow(1 - x, 4);
+		case 9: // QuadSlowIn fastOut
+		  return (x / 8) + (7 / 8) * pow(x, 4);
+		case 10: // waving
+		  return x + 0.1 * sin(8 * PI * x);
+		case 11: // middle stop
+		  return (1 - pow(cos(PI * x), 5)) / 2;
+	}
 }
