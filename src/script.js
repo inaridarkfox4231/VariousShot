@@ -34,6 +34,21 @@ function draw(){
   //timeCounter.innerText = `${timeStr}ms`;
 }
 
+function keyTyped(){
+  if(key === 'q'){ noLoop(); } // Qでショット変更。
+  else if(key === 'p'){ loop(); } // Zで発射。
+	else if(key === 'a'){
+		let s = [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0];
+		for(let i = 0; i < s.length; i++){
+			if(s[i] === 0){
+				s.splice(i, 1);
+				i--;
+			}
+		}
+		console.log(s);
+	}
+}
+
 function mouseClicked(){
 	mX = mouseX;
 	mY = mouseY;
@@ -174,6 +189,7 @@ class play extends state{
 			array.push(...[simpleGenerate([0], [{x:560 + random(40), y:420 - random(120)}]), wait(60)]);
 		}
 		array.push(...[wait(240), simpleGenerate([3, 3], [{x:600, y:120}, {x:600, y:360}])]);
+		array.push(...[wait(540), simpleGenerate([100], [{x:600, y:240}])]);
 		this.generator.setCommand(array);
 	}
 	update(_master){
@@ -319,17 +335,19 @@ class play extends state{
 			if(!e.active){
 				this.effectArray.push(new simpleVanish(60, e));
 				this.enemyArray.splice(i, 1);
+				i--;
 			}
 		}
 		for(let i = 0; i < this.bulletArray.length; i++){
 			let b = this.bulletArray[i];
-			if(!b.active){ this.bulletArray.splice(i, 1); }
+			if(!b.active){ this.bulletArray.splice(i, 1); i--; }
 		}
 		for(let i = 0; i < this.effectArray.length; i++){
 			let ef = this.effectArray[i];
 			if(ef.finished){
 				if(ef.typeName === "appear"){ this.enemyArray.push(ef.enemy); }
 				this.effectArray.splice(i, 1);
+				i--;
 			}
 		}
 	}
@@ -629,6 +647,7 @@ class player{
 	}
 	charge(array){
 		// arrayにbulletをぶちこむ（複数の場合あり）
+		if(!this.active){ return; }
 		if(!mouseIsPressed || this.span > 0){ return; }
 		chargeBullet(this.shotId, this);
 		array.push(...this.bulletCase);
@@ -707,11 +726,14 @@ class mover{
 	setPos(x, y){ this.x = x; this.y = y; }
 	charge(array){
 		// fireとかどうでもいい。activeなものを取りだして放り込む。取り出したら排除。
+		// どうせ頭からいくつかだから、切り取ってはじく。
+		// いやー・・あの方法でもできるしその方がいいでしょ・・
 		for(let i = 0; i < this.bulletCase.length; i++){
 			let b = this.bulletCase[i];
 			if(!b.active){ continue; }
 			array.push(b);
 			this.bulletCase.splice(i, 1);
+			i--;
 		}
 	}
 	rotateDirection(degree){
@@ -759,15 +781,20 @@ class enemy extends mover{
 		this.life = 0;
 		this.inActivate();
 	}
+	drawLifeGauge(){
+		fill(0);
+		rect(this.x - this.w * 2 - 2, this.y + this.h * 1.5 - 2, this.w * 4 + 4, 9);
+		fill(120);
+		rect(this.x - this.w * 2, this.y + this.h * 1.5, this.w * 4, 5);
+		fill(this.c.r, this.c.g, this.c.b);
+		rect(this.x - this.w * 2, this.y + this.h * 1.5, this.w * 4 *  this.life / this.maxLife, 5);
+	}
 	render(){
 	  if(!this.active){ return; }
 		fill(this.c.r, this.c.g, this.c.b);
 		rect(this.x - this.w, this.y - this.h, this.w * 2, this.h * 2);
 		// HPゲージ。
-		fill(150);
-		rect(this.x - this.w * 2 - 2, this.y + this.h * 1.5 - 2, this.w * 4 + 4, 9);
-		fill(this.c.r, this.c.g, this.c.b);
-		rect(this.x - this.w * 2, this.y + this.h * 1.5, this.w * 4 *  this.life / this.maxLife, 5);
+		this.drawLifeGauge();
 	}
 }
 
@@ -781,6 +808,15 @@ class boss extends enemy{
 		this.moveArray.execute(this);
 		this.shotArray.execute(this);
 		this.patternArray.execute(this); // パターンチェンジを司る感じ
+	}
+	drawLifeGauge(){
+		// 画面の下の方に描く
+		fill(0);
+		rect(80, height - 60, width - 160, 20);
+		fill(120);
+		rect(82, height - 58, width - 164, 16);
+		fill(this.c.r, this.c.g, this.c.b);
+		rect(82, height - 58, (width - 164) * this.life / this.maxLife, 16);
 	}
 }
 
@@ -862,6 +898,8 @@ class commandArray{
 	}
 	setIndex(n){
 		this.index = n;
+		this.t = 0;
+		this.loopCounter = 0;
 		this.currentCommand = this.seq[this.index];
 	}
 	inputCommand(seq){
@@ -966,6 +1004,8 @@ function randomWarp(nArray){ return (obj, cArray) => { cArray.setIndex(random(nA
 // mArrayからsArrayを操作する
 function sArrayShift(n){ return (obj, cArray) => {
 	obj.shotArray.shiftIndex(n);
+	obj.shotArray.t = 0;
+	obj.shotArray.loopCounter = 0;
 	cArray.shiftIndex(1);
 } }
 
@@ -1029,9 +1069,13 @@ function fireAll(obj){
 }
 
 // パターンチェンジ
-function patternChange(ratio, mIndex, sIndex){ return (obj, cArray) => {
+function patternChangeLife(ratio, mIndex, sIndex){ return (obj, cArray) => {
 	// HPがMaxのratio以下になるとmとsのIndexをいじる
-
+  if(obj.life > obj.maxLife * ratio){ return; }
+	obj.moveArray.setIndex(mIndex);
+	obj.shotArray.setIndex(sIndex);
+	obj.bulletCase = [];
+	cArray.shiftIndex(1);
 } }
 
 // ----------------------------------------------------------------------------------- //
@@ -1050,14 +1094,14 @@ function getEnemy(id, x, y){
 		case 3:
 		  return en3(x, y);
 		case 100:
-		  return en100();
+		  return en100(x, y);
 	}
 }
 
 // lifeは15. 左に直進しながら自機誘導を連続8発。おわり。
 function en0(x, y){
 	let mArray = [setV(-2, 0), straight];
-	let sArray = [setMulti(128, 8), fire(0, 1), wait(10), shiftLoop(2, 8)]
+	let sArray = [setMulti(128, 8), fire(0, 1), wait(10), shiftLoop(2, 8)];
 	return new enemy(x, y, 10, 10, mArray, sArray, 255, 201, 14, 15);
 }
 // en1, en2, ...作っていく。killedAction = () => {}みたいにすることで
@@ -1077,7 +1121,7 @@ function en2(x, y){
 	return new enemy(x, y, 20, 20, mArray, sArray, 0, 162, 232, 40);
 }
 
-// lifeは150. 右から左ばらまき、ガトリング10発、左から右ばらまき、中心向かってぎゅーん消える
+// lifeは100. 右から左ばらまき、ガトリング10発、左から右ばらまき、中心向かってぎゅーん消える
 function en3(x, y){
 	let mArray = [wait(360), setAbsHoming(6, width / 2, height / 2), accellMulti(1.05)];
 	let sArray = [setSingle(129, {start:-60, diff:5, n:25}), setMulti(128, 10)];
@@ -1085,12 +1129,24 @@ function en3(x, y){
 	sArray.push(...[wait(10), fire(0, 1), wait(4), shiftLoop(2, 10)]);
 	sArray.push(...[wait(10), fire(0, 1), wait(4), shiftLoop(2, 25), wait(10)]);
 	sArray.push(...[setV(-5, 0), accellMulti(1.05)]);
-	return new enemy(x, y, 20, 20, mArray, sArray, 0, 92, 132, 150);
+	return new enemy(x, y, 20, 20, mArray, sArray, 0, 92, 132, 100);
 }
 
 // ちょっと早いけど第一ステージのボス。
-function en100(){
-
+// x = 600, y = 240 （決め打ち）. 上に移動して扇状4回、真ん中、4回、下、4回、上、4回を延々と。
+// HPが200以下になったら中心に移動して欠けた扇状に90°ずつ方向変えて延々と。以上。
+function en100(x, y){
+  let mArray = [to(600, 120, 30), sArrayShift(1), wait(180), to(600, 240, 30), sArrayShift(1), wait(180)];
+	mArray.push(...[to(600, 360, 30), sArrayShift(1), wait(180), to(600, 240, 30), sArrayShift(1), wait(180)]);
+	mArray.push(shiftLoop(12, Infinity));
+	mArray.push(...[to(300, 240, 30), wait(Infinity)]);
+	let sArray = [wait(Infinity), setMulti(129, 4, {start:-60, diff:10, n:13}), fire(0, 13), wait(30)];
+	sArray.push(...[shiftLoop(2, 4), back(5), wait(60)]);
+	sArray.push(...[setSingle(130, {start:0, diff:10, n:27}), setSingle(130, {start:90, diff:10, n:27})]);
+	sArray.push(...[setSingle(130, {start:180, diff:10, n:27}), setSingle(130, {start:270, diff:10, n:27})]);
+	sArray.push(...[fire(0, 27), wait(60), shiftLoop(2, 4), back(7)]);
+	let pArray = [patternChangeLife(1/3, 13, 6)];
+	return new boss(x, y, 10, 10, mArray, sArray, 255, 127, 39, 600, pArray);
 }
 
 // バックインで入って誘導弾をばらまきつつぎゅーんとフェードアウト
@@ -1111,8 +1167,11 @@ function chargeBullet(id, obj, info = {}){
 			// 自機誘導
 			bl128(obj, info); break;
 		case 129:
-		  // 円形スプレッド
+		  // 自機誘導扇状
 			bl129(obj, info); break;
+		case 130:
+		  // 絶対位置指定の扇状
+			bl130(obj, info); break;
 	}
 }
 
@@ -1165,6 +1224,20 @@ function bl129(obj, info){
 	for(let i = 0; i < n; i++){
 		let degree = start + diff * i;
 		let mArray = [setHoming(5), rot(degree), straight];
+		let b = new bullet(0, 0, 4, 4, mArray, [], 255, 201, 14, 5);
+		b.collider.setId(3);
+		b.inActivate();
+		obj.bulletCase.push(b); // ダメージは5.
+	}
+}
+// 自機とは関係なく絶対位置で。これ無駄、だな・・・
+function bl130(obj, info){
+	let start = info.start; // startからdiff間隔でn個。
+	let diff = info.diff;
+	let n = info.n;
+	for(let i = 0; i < n; i++){
+		let degree = start + diff * i;
+		let mArray = [setV(5, 0), rot(degree), straight];
 		let b = new bullet(0, 0, 4, 4, mArray, [], 255, 201, 14, 5);
 		b.collider.setId(3);
 		b.inActivate();
