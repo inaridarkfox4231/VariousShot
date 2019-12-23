@@ -15,8 +15,6 @@ let doubleClickFlag = false;
 /*
 const timeCounter = document.createElement('div');
 document.body.appendChild(timeCounter);
-const collisionCounter = document.createElement('div');
-document.body.appendChild(collisionCounter);
 */
 
 function setup(){
@@ -161,6 +159,11 @@ class play extends state{
 		this.lv = -1;
 		// 衝突関連。毎回初期化する。
     this._qTree = new linearQuadTreeSpace(width, height, 3);
+		// このwidth, heightのところをちょっとだけ増やして、colliderの値にもマイナスとかそこら辺を
+		// 許容して、足し算するとかすればいいんじゃない・・
+		// あーそうか、left, rightを右にずらしてtop, bottomを下にずらせばいいんだよ。それでいける。
+		// その値をmarginとして、設定時にmarginの2倍だけ増やす、んー、そうすればいいんじゃない？
+		// marginの計算はQuadTree内でおこなった方がよさそうね。
     this._detector = new collisionDetector();
 	}
 	reset(){
@@ -375,7 +378,7 @@ class circleCollider extends collider{
 		this.r = r;
 	}
 	get left(){ return this.x - this.r; }
-	get top(){ return this.x + this.r; }
+	get right(){ return this.x + this.r; }
 	get top(){ return this.y - this.r; }
 	get bottom(){ return this.y + this.r; }
 	update(x, y, r){
@@ -396,7 +399,7 @@ class rectCollider extends collider{
 		this.h = h;
 	}
 	get left(){ return this.x - this.w; }
-	get top(){ return this.x + this.w; }
+	get right(){ return this.x + this.w; }
 	get top(){ return this.y - this.h; }
 	get bottom(){ return this.y + this.h; }
 	update(x, y, w, h){
@@ -1066,6 +1069,15 @@ function fireAll(obj){
 		b.setPos(obj.x, obj.y);
 		b.activate();
 	})
+}
+
+// 試作品（createBulletData...ゆくゆくはfireってしたい）
+function createBulletData(dir, data, shot, interval){
+	// dirは0:自機狙い、1～359で方向回転。メンバ変数にdirectionを含める。
+	// shotは単独とかそういうの、辞書にする。色形とか。intervalは発射までの時間。
+	return (obj, cArray) => {
+		// メインメソッド
+	}
 }
 
 // パターンチェンジ
