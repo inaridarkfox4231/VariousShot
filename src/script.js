@@ -12,10 +12,10 @@ const spanArray = [5, 8, 10]; // span関係ないところは-1で補間
 let doubleClickFlag = false;
 
 // 時間表示の設置。
-/*
+
 const timeCounter = document.createElement('div');
 document.body.appendChild(timeCounter);
-*/
+
 
 function setup(){
 	createCanvas(640, 480);
@@ -24,12 +24,12 @@ function setup(){
 }
 
 function draw(){
-  //const start = performance.now(); // 時間表示。
+  const start = performance.now(); // 時間表示。
 	all.update();
 	all.render();
-	//const end = performance.now();
-  //const timeStr = (end - start).toPrecision(4);
-  //timeCounter.innerText = `${timeStr}ms`;
+	const end = performance.now();
+  const timeStr = (end - start).toPrecision(4);
+  timeCounter.innerText = `${timeStr}ms`;
 }
 
 function keyTyped(){
